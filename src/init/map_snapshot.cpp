@@ -1,5 +1,6 @@
 #include <cambc.h>
 #include "../core/match_data.h"
+#include "stages.h"
 using cambc::vec2;
 bool stage_map_snapshot(MatchData& match_data) {
     for (const auto& group : cambc::map::camp_groups()) {

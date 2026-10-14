@@ -1,8 +1,4 @@
-#include "skill.h"
-#include "skill_instances.h"
-class Shield : public Skill {
-public:
-    bool can_use(const TurnContext& ctx) override { return false; }
-    void use(TurnContext& ctx) override {}
-};
+#include "shield.h"
+bool Shield::can_use(const TurnContext& ctx) { return false; }
+void Shield::use(TurnContext& ctx) {}
 Shield shield_instance;

@@ -1,8 +1,4 @@
-#include "skill.h"
-#include "skill_instances.h"
-class Ward : public Skill {
-public:
-    bool can_use(const TurnContext& ctx) override { return false; }
-    void use(TurnContext& ctx) override {}
-};
+#include "ward.h"
+bool Ward::can_use(const TurnContext& ctx) { return false; }
+void Ward::use(TurnContext& ctx) {}
 Ward ward_instance;

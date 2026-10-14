@@ -1,8 +1,4 @@
-#include "skill.h"
-#include "skill_instances.h"
-class Consumables : public Skill {
-public:
-    bool can_use(const TurnContext& ctx) override { return false; }
-    void use(TurnContext& ctx) override {}
-};
+#include "consumables.h"
+bool Consumables::can_use(const TurnContext& ctx) { return false; }
+void Consumables::use(TurnContext& ctx) {}
 Consumables consumables_instance;

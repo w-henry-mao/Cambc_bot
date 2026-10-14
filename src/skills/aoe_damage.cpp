@@ -1,8 +1,4 @@
-#include "skill.h"
-#include "skill_instances.h"
-class AoeDamage : public Skill {
-public:
-    bool can_use(const TurnContext& ctx) override { return false; }
-    void use(TurnContext& ctx) override {}
-};
+#include "aoe_damage.h"
+bool AoeDamage::can_use(const TurnContext& ctx) { return false; }
+void AoeDamage::use(TurnContext& ctx) {}
 AoeDamage aoe_damage_instance;

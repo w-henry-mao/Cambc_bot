@@ -1,8 +1,4 @@
-#include "skill.h"
-#include "skill_instances.h"
-class AttackReset : public Skill {
-public:
-    bool can_use(const TurnContext& ctx) override { return false; }
-    void use(TurnContext& ctx) override {}
-};
+#include "attack_reset.h"
+bool AttackReset::can_use(const TurnContext& ctx) { return false; }
+void AttackReset::use(TurnContext& ctx) {}
 AttackReset attack_reset_instance;

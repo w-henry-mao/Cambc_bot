@@ -1,11 +1,8 @@
 #include "initializer.h"
+#include "stages.h"
 #include "../core/match_data.h"
 #include "../constants/brain_constants.h"
 #include "../debug/fuel_meter.h"
-bool stage_map_snapshot(MatchData&);
-bool stage_roster(MatchData&);
-bool stage_self_setup(MatchData&);
-bool stage_draft_memory_read(MatchData&);
 static const StageFunc stages[] = {stage_map_snapshot, stage_roster, stage_self_setup, stage_draft_memory_read};
 static constexpr int kNumStages = sizeof(stages) / sizeof(stages[0]);
 void run_init_stages(MatchData& match_data, BotMemory& memory) {

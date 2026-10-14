@@ -1,8 +1,4 @@
-#include "skill.h"
-#include "skill_instances.h"
-class SingleTargetDamage : public Skill {
-public:
-    bool can_use(const TurnContext& ctx) override { return false; }
-    void use(TurnContext& ctx) override {}
-};
+#include "single_target_damage.h"
+bool SingleTargetDamage::can_use(const TurnContext& ctx) { return false; }
+void SingleTargetDamage::use(TurnContext& ctx) {}
 SingleTargetDamage single_target_damage_instance;

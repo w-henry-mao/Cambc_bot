@@ -11,6 +11,7 @@ src/
 │
 ├── init/                        Staged initialization (runs once on first play turn)
 │   ├── initializer.h/.cpp       Stage runner
+│   ├── stages.h                 Declarations of the stage functions below
 │   ├── map_snapshot.cpp         Cache static map data
 │   ├── roster.cpp               Allied champions
 │   ├── self_setup.cpp           Own champion type -> profile
@@ -48,18 +49,18 @@ src/
 ├── states/
 │   ├── state_module.h           State interface (score, execute, on_enter, on_exit)
 │   ├── shop.h                   Pre-step: buy items on spawn/dead
-│   ├── recall.cpp                Recall when hurt away from spawn
-│   ├── attack.cpp                Attack enemy champions in range
-│   ├── tribute.cpp               Submit gems at altars
-│   └── farm.cpp                 Attack camps or move toward spawn tiles
+│   ├── recall.h/.cpp            Recall when hurt away from spawn
+│   ├── attack.h/.cpp            Attack enemy champions in range
+│   ├── tribute.h/.cpp           Submit gems at altars
+│   └── farm.h/.cpp              Attack camps or move toward spawn tiles
 │
 ├── skills/                      Skill stubs (empty + TODO)
 │   ├── skill.h                  Skill interface (can_use, use)
-│   ├── melee_attack.cpp         Basic attack for melee
-│   ├── ranged_attack.cpp        Basic attack for ranged
+│   ├── melee_attack.h/.cpp      Basic attack for melee
+│   ├── ranged_attack.h/.cpp     Basic attack for ranged
 │   ├── dash, attack_reset, single_target_damage, aoe_damage, stun,
-│       shield, heal, ward, consumables  (.cpp each)
-│   └── skill_instances.h       Skill instance declarations
+│       shield, heal, ward, consumables  (.h/.cpp each)
+│   └── skill_instances.h       Includes every skill header (class + instance)
 │
 ├── champions/
 │   ├── champion_profile.h       Attack type, skill list, linked_pair flag
@@ -156,10 +157,10 @@ Init stages run before baseline states, so states must not depend on `MatchData`
 
 ## How to Add a State
 
-1. Create `states/my_state.cpp` with a class implementing `StateModule`
-2. Implement `score()`, `execute()`, `on_enter()`, `on_exit()`, `switch_margin()`
+1. Create `states/my_state.h` declaring a class that implements `StateModule` and `extern MyState my_state_instance;`
+2. Create `states/my_state.cpp` defining `score()`, `execute()` (and optionally `on_enter()`, `on_exit()`, `switch_margin()`) and the instance
 3. Add a memory sub-struct in `core/bot_memory.h`
-4. Add the state to the selector in `bot.cpp`:
+4. Include `states/my_state.h` in `bot.cpp` (never include a `.cpp`: every `.cpp` under `src/` is already compiled) and add the state to the selector:
    ```cpp
    selector.add_state(&my_state_instance, State::MyState);
    ```
@@ -181,7 +182,7 @@ Init stages run before baseline states, so states must not depend on `MatchData`
 
 ## How to Add a Skill
 
-1. Create `skills/my_skill.cpp` implementing `Skill`
-2. Implement `can_use()` and `use()`
-3. Add declaration to `skills/skill_instances.h`
+1. Create `skills/my_skill.h` declaring the class (deriving from `Skill`) and `extern MySkill my_skill_instance;`
+2. Create `skills/my_skill.cpp` defining `can_use()`, `use()` and the instance
+3. Include the header in `skills/skill_instances.h`
 4. Add instance to champion profiles in `champions/*.cpp`

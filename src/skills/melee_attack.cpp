@@ -1,8 +1,4 @@
-#include "skill.h"
-#include "skill_instances.h"
-class MeleeAttack : public Skill {
-public:
-    bool can_use(const TurnContext& ctx) override { return false; }
-    void use(TurnContext& ctx) override {}
-};
+#include "melee_attack.h"
+bool MeleeAttack::can_use(const TurnContext& ctx) { return false; }
+void MeleeAttack::use(TurnContext& ctx) {}
 MeleeAttack melee_attack_instance;
