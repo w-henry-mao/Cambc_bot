@@ -9,3 +9,6 @@ Desktop.ini
 
 # Upload artifacts
 dev.zip
+
+# Development scripts (bot is pure C++)
+*.sh
