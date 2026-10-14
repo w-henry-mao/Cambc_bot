@@ -1,0 +1,11 @@
+build/
+.cambc/
+compile_commands.json
+
+# OS-specific
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Upload artifacts
+dev.zip
