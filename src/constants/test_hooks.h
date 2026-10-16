@@ -25,3 +25,9 @@
 #ifndef DUEL_FIRST_PICK
 #define DUEL_FIRST_PICK -1
 #endif
+#ifndef VERIFY_PATH_CACHE
+#define VERIFY_PATH_CACHE false
+#endif
+#ifndef PATH_CACHE_ENABLED
+#define PATH_CACHE_ENABLED true
+#endif

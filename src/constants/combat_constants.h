@@ -1,4 +1,5 @@
 #pragma once
+#include <cstddef>
 #include <cstdint>
 #include "test_hooks.h"
 namespace constants {
@@ -23,4 +24,13 @@ constexpr bool kCombatTrace = COMBAT_TRACE;
 // the first enemy it meets with the normal attack code. Test builds only.
 constexpr bool kDuelMode = DUEL_MODE;
 constexpr int kDuelFighterType = DUEL_FIGHTER_TYPE;
+// Test builds: on every path-cache hit, also recompute and log whether the answers agree.
+constexpr bool kVerifyPathCache = VERIFY_PATH_CACHE;
+// Stored fast-prediction paths, and how many rounds one stays usable.
+constexpr bool kPathCacheEnabled = PATH_CACHE_ENABLED;   // test builds may switch it off to compare
+constexpr int kPathCacheSlots = 4;
+// Path points recorded per prediction (our next turns). Real fights rarely stay on the predicted
+// path for long, so later points are seldom reused and only cost fuel to record.
+constexpr std::size_t kPathCachePoints = 8;
+constexpr std::uint32_t kPathCacheRounds = 60;
 }

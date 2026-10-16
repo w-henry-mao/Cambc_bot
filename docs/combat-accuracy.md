@@ -21,6 +21,9 @@ dealt) and our bot stayed in its attack state.
 | --- | --- | --- | --- | --- |
 | base | 33 | 0 | 0 | 4 |
 | no recall | 98 | 0 | 0 | 14 |
+
+(Earlier run. With the attack fix and per-turn predictions in the trace: base 44 counted, 0
+violations; no recall 76 counted, 1 violation of 2 health, see Open items.)
 | no recall, reach +2 | 28 | 0 | 0 | 15 |
 | reach +4 | 10 | 0 | 0 | 4 |
 
@@ -38,6 +41,30 @@ About 95% of fights in full games are not clean one-on-ones and are not counted.
 The fast version stops at `kFastSimFuelBudget` (15,000) of simulation and answers
 "unresolved" (12% of calls). The full version never ran out of fuel: it gets the fuel left
 minus `kFullFuelReserve` (25,000) and stops searching stun timings at 60% of that.
+
+## Path cache (`tools/path_cache_stats.py`)
+
+Verification builds (`VERIFY_PATH_CACHE=true`) recompute every cache hit from scratch: 0
+disagreements in 7,280 hits (exact duels and both in-match variants). The matchup filter was
+added after that run; it can only skip stored paths, never create a hit.
+
+Fuel per fast call made every turn during a fight (default fuel, 34 matches vs `starter-cpp`):
+
+| | median | 95th percentile | max |
+| --- | --- | --- | --- |
+| No path cache | 18,308 | 22,175 | 25,645 |
+| Cache hit (41% of calls) | 6,424 | 6,546 | 7,223 |
+| Cache miss | 19,930 | 24,011 | 26,619 |
+
+Hit rates: 90% vs the max-aggression test bot, 41% vs `starter-cpp`, 14% and 5% in self-play
+(base and no-recall variants). At 14% the cache roughly breaks even; at 5% it costs ~5% more.
+
+## Open items
+
+- One clean fight (no-recall variant, `S-contest`, Stellar vs Issac, round 728) ended 2 health
+  below the worst case (1,008 vs 1,010): we lost 42 in one enemy turn where Issac deals 40. The
+  source of the extra 2 is unexplained. It first appeared once the trace began predicting every
+  turn, which changes fuel use and so the games themselves.
 
 ## Known limits
 

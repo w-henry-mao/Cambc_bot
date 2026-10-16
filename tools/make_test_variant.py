@@ -18,7 +18,8 @@ if dst.exists() and (dst.resolve() == ROOT.resolve() or (dst / ".git").exists())
     sys.exit(f"refusing to overwrite {dst}: it is a git checkout, not a test variant")
 if (dst / "src").exists():
     shutil.rmtree(dst / "src")
-shutil.copytree(ROOT / "src", dst / "src")
+# Plain copies get fresh timestamps, so the variant's build always recompiles changed files.
+shutil.copytree(ROOT / "src", dst / "src", copy_function=shutil.copy)
 (dst / "src/constants/test_overrides.h").write_text(
     "#pragma once\n" + "".join(f"#define {k} {v}\n" for k, v in overrides.items()))
 print(f"variant {name}: {overrides}")

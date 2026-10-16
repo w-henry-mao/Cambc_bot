@@ -84,7 +84,17 @@ void combat_trace_turn_start() {
     else {
         try {
             auto& me = bc::self();
-            if (fight || !me.is_alive()) return;
+            if (!me.is_alive()) return;
+            if (fight) {
+                // During a fight, predict every turn as a caller would; log path-cache hits and cost.
+                if (!fight->target || !in_view(*fight->target) || bc::fuel_remaining() < 40000) return;
+                const auto t0 = bc::fuel_remaining();
+                const auto r = predict_duel_fast(*fight->target);
+                std::cout << "PATH_TURN r=" << bc::round_number() << " me=" << bc::to_string(me.champion_name())
+                          << " hit=" << last_call_hit_path_cache() << " fuel=" << (t0 - bc::fuel_remaining())
+                          << " resolved=" << r.resolved << '\n';
+                return;
+            }
             const auto enemy = nearest_enemy(me);
             if (!enemy || enemy->position().chebyshev_distance(me.position()) > kContactDistance) return;
             if (bc::fuel_remaining() < 60000) return;   // keep trace builds from running out mid-turn

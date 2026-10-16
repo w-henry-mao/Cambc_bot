@@ -18,12 +18,13 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--jobs", default="8"); ap.add_argument("--fuel-quantum", default="1000000")
     ap.add_argument("--variants", default="", help="comma-separated subset of variant names")
+    ap.add_argument("--extra", default="", help="extra NAME=VALUE overrides for every variant, comma-separated")
     args = ap.parse_args()
     chosen = args.variants.split(",") if args.variants else list(VARIANTS)
     maps = sorted((WS / "maps").glob("*.map26a"))
     for name, overrides in VARIANTS.items():
         if name not in chosen: continue
-        subprocess.run([sys.executable, str(ROOT / "tools/make_test_variant.py"), name, *overrides], check=True, capture_output=True)
+        subprocess.run([sys.executable, str(ROOT / "tools/make_test_variant.py"), name, *overrides, *[x for x in args.extra.split(",") if x]], check=True, capture_output=True)
         out = WS / "replays" / name
         if out.exists(): shutil.rmtree(out)
         out.mkdir(parents=True)

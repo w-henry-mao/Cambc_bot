@@ -5,6 +5,8 @@
 #include "design_table.h"
 #include "simulator.h"
 #include "budget.h"
+#include "path_cache.h"
+#include <iostream>
 #include "../constants/combat_constants.h"
 #include "../core/roster.h"
 
@@ -55,6 +57,7 @@ float camp_damage_near(bc::vec2 tile) {
 }
 
 std::uint64_t g_setup_fuel = 0, g_sim_fuel = 0;
+bool g_path_hit = false;
 std::uint64_t fuel_now() { return bc::fuel_remaining(); }
 
 // Position in its team's turn order. The engine orders by priority, then draft order
@@ -93,6 +96,7 @@ DuelSetup duel_setup(const bc::champion& ours, const bc::champion& enemy, const 
 }
 
 FightResult predict_duel(const bc::champion& ours, const bc::champion& enemy, bool full, const FightOptions& options) {
+    g_path_hit = false;
     // Live stats need both champions visible and alive; anything else has no answer (and reading a
     // hidden champion throws, which costs a lot of fuel in wasm).
     if (!in_view(ours) || !in_view(enemy)) return FightResult{};
@@ -109,14 +113,60 @@ FightResult predict_duel(const bc::champion& ours, const bc::champion& enemy, bo
         if (e.used && e.round == round && e.full == full && e.round_cap == opts.round_cap && same_inputs(e.setup, setup))
             return e.result;
 
+    // Fast version: if the fight has gone exactly as an earlier prediction said, the current state
+    // is a point on its path and that answer still holds (path_cache.h). Only for our own turn
+    // order and without camp damage, where recorded points are exact.
+    struct PathSlot {
+        std::uint32_t round = 0;
+        const ChampionDesign* ours = nullptr;    // the matchup this path was calculated for
+        const ChampionDesign* enemy = nullptr;
+        StoredPath path;
+    };
+    static PathSlot paths[constants::kPathCacheSlots];
+    static unsigned next_path = 0;
+    const bool path_ok = constants::kPathCacheEnabled && !full && setup.our_turn_now && !options.include_camps;
+    if (path_ok) {
+        for (const auto& slot : paths) {
+            // Only paths calculated for this matchup can match; skip the rest without scanning.
+            if (slot.ours != setup.us.design || slot.enemy != setup.enemy.design) continue;
+            if (slot.path.points.empty() || round - slot.round > constants::kPathCacheRounds) continue;
+            if (const auto hit = reuse_from_path(slot.path, setup)) {
+                g_path_hit = true;
+                if constexpr (constants::kVerifyPathCache) {
+                    FightOptions check = opts;
+                    check.fuel_budget = 0;
+                    check.fuel_left = nullptr;
+                    const auto fresh = simulate_duel_fast(setup, check);
+                    const bool same = fresh.we_win == hit->we_win && fresh.resolved == hit->resolved
+                        && fresh.our_health_worst_case == hit->our_health_worst_case
+                        && fresh.enemy_health_at_end == hit->enemy_health_at_end && fresh.turns == hit->turns;
+                    std::cout << "PATH_CHECK r=" << round << " same=" << same << '\n';
+                }
+                return *hit;
+            }
+        }
+    }
+
     // Never spend more simulation fuel than the turn has left after the reserve; a caller's own
     // budget, if given, can only lower it.
     const auto budget = prediction_budget(full, bc::fuel_remaining(), constants::kFastSimFuelBudget, constants::kFullFuelReserve);
     if (budget == 0) return FightResult{};
     opts.fuel_budget = options.fuel_budget > 0 ? std::min(options.fuel_budget, budget) : budget;
     if (!opts.fuel_left) opts.fuel_left = fuel_now;
+    static std::vector<PathPoint> recorded;
+    recorded.clear();
+    if (path_ok) { opts.path_out = &recorded; opts.path_max_points = constants::kPathCachePoints; }
     const auto f1 = bc::fuel_remaining();
     const auto result = full ? simulate_duel(setup, opts) : simulate_duel_fast(setup, opts);
+    if (path_ok && result.resolved && !recorded.empty()) {
+        auto& slot = paths[next_path];
+        slot.round = round;
+        slot.ours = setup.us.design;
+        slot.enemy = setup.enemy.design;
+        slot.path.points.swap(recorded);   // no copy; `recorded` is cleared before its next use
+        slot.path.result = result;
+        next_path = (next_path + 1) % constants::kPathCacheSlots;
+    }
     g_setup_fuel = f0 - f1;
     g_sim_fuel = f1 - bc::fuel_remaining();
 
@@ -150,3 +200,4 @@ bool two_v_one_favourable(const bc::champion& ally_a, const bc::champion& ally_b
 
 std::uint64_t last_setup_fuel() { return g_setup_fuel; }
 std::uint64_t last_sim_fuel() { return g_sim_fuel; }
+bool last_call_hit_path_cache() { return g_path_hit; }

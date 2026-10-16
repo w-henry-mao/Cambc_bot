@@ -42,12 +42,14 @@ def main():
     ap.add_argument("--map", default="packs")
     ap.add_argument("--types", default="", help="comma-separated champion types of ours (default: all drafted)")
     ap.add_argument("--out", default="duel")
+    ap.add_argument("--extra", default="", help="extra NAME=VALUE overrides for our duel builds, comma-separated")
     args = ap.parse_args()
     types = [int(x) for x in args.types.split(",")] if args.types else list(OUR_TYPES)
     for t in types:
         subprocess.run([sys.executable, str(ROOT / "tools/make_test_variant.py"), f"duel-{t}", "DUEL_MODE=true",
                         f"DUEL_FIGHTER_TYPE={t}", "RECALL_SCORE=0", "FAST_SIM_FUEL_BUDGET=1000000"]
-                       + ([f"DUEL_FIRST_PICK={FIRST_PICK[t]}"] if t in FIRST_PICK else []), check=True, capture_output=True)
+                       + ([f"DUEL_FIRST_PICK={FIRST_PICK[t]}"] if t in FIRST_PICK else [])
+                       + ([x for x in args.extra.split(",") if x]), check=True, capture_output=True)
     for p, ct in ENEMY.items(): install_aggressor(p, ct)
     out = WS / "replays" / args.out
     if out.exists(): shutil.rmtree(out)

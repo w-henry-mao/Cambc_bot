@@ -219,6 +219,14 @@ Things callers should know:
 - `two_v_one_favourable` never takes the "either ally wins alone" shortcut for Cassi and Issac,
   who die together.
 
+**Path cache (fast version).** Each fast prediction stores the predicted state at the start of
+our next turns (`kPathCachePoints` = 8). If on a later turn the fight has gone exactly as
+predicted, the stored answer is reused without simulating (`combat/path_cache.h`). Only for our
+own champion, without camp damage, and only paths for the same matchup are checked. Measured vs
+starter-cpp: a hit costs ~6,400 fuel, a miss ~19,900, no cache ~18,300; it pays off above
+roughly a 12% hit rate. Hit rates seen: 90% vs a maximally aggressive opponent, 41% vs
+starter-cpp, 5-14% in self-play. Switch: `kPathCacheEnabled` (constants/combat_constants.h).
+
 Tests: `make -C tests test` (host, no SDK). Exact duels: `python3 tools/duel_harness.py`.
 In-match accuracy: `python3 tools/accuracy_runs.py`. Test builds come from
 `tools/make_test_variant.py` (overrides in a git-ignored `src/constants/test_overrides.h`).

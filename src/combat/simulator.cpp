@@ -308,28 +308,47 @@ struct Search {
         return !dead(f);
     }
 
+    // Path recording (fast version, our own turn order only): the state at the start of our turn
+    // `t`, as a fresh call would see it then. Not recorded when we are stunned (the bot does not
+    // act or predict then) or with camp damage (the live reading already includes it).
+    void record(const State& s, int t) const {
+        if (!options.path_out || max_leaves != 0 || !our_turn_now || options.include_camps) return;
+        if (options.path_out->size() >= options.path_max_points) return;
+        if (s.us.stunned_rounds > 0) return;
+        PathPoint p;
+        p.turn = t;
+        p.setup = setup;
+        p.setup.us = s.us;
+        expire_shield(p.setup.us);   // the engine resolves it before our code runs
+        p.setup.enemy = s.en;
+        p.setup.walk_distance = s.d;
+        p.setup.our_turn_now = true;
+        // Same turn position: if our next turn comes straight after this one, the enemy has
+        // already acted this round. Otherwise the order is strict alternation (flag unused).
+        p.setup.enemy_acted_this_round = same_position && our_turn_at(enemy_acted, t + 1, true, our_turn_now);
+        options.path_out->push_back(p);
+    }
+
     // Steady stretch: only basic attacks (and stunned turns, shields running down) until a
     // cooldown comes back, our self-support would fire, or someone dies. Same rules as a full
     // turn. Returns the index of the last turn played.
     int fast_forward(State& s, int t) const {
         int us_left = turns_until_ready(s.us, true), en_left = turns_until_ready(s.en, false);
         const float us_support_at = support_trigger(s.us);
-        int us_turns = 0, en_turns = 0;
         for (;; ++t) {
             const bool ours = our_turn_at(enemy_acted, t, same_position, our_turn_now);
+            if (ours) record(s, t);
             Fighter& a = ours ? s.us : s.en;
             Fighter& o = ours ? s.en : s.us;
             expire_shield(a);
             if (a.stunned_rounds > 0) --a.stunned_rounds;
             else hit(o, a, a.strength);
             if (a.shield_turns > 0) --a.shield_turns;
+            for (int& c : a.cooldown) c = std::max(0, c - 1);   // per turn, so recorded points are exact
             int& left = ours ? us_left : en_left;
-            ++(ours ? us_turns : en_turns);
             if (dead(s.us) || dead(s.en) || --left == 0 || t + 1 >= total_turns) break;
             if (s.us.health < us_support_at) break;   // our support fires on our next turn
         }
-        for (int& c : s.us.cooldown) c = std::max(0, c - us_turns);
-        for (int& c : s.en.cooldown) c = std::max(0, c - en_turns);
         return t;
     }
 
@@ -344,6 +363,7 @@ struct Search {
                 if (dead(s.us) || dead(s.en)) return finish(s, t + 1, true);
                 continue;
             }
+            if (ours) record(s, t);
             if (start_turn(s, ours)) {
                 if (ours) our_turn(s);
                 else {

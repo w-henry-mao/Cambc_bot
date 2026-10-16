@@ -16,3 +16,5 @@ bool two_v_one_favourable(const cambc::champion& ally_a, const cambc::champion& 
 // Fuel spent by the last uncached predict_duel call: reading SDK state, and simulating.
 std::uint64_t last_setup_fuel();
 std::uint64_t last_sim_fuel();
+// Whether the last predict_duel call was answered from a stored path (no simulation).
+bool last_call_hit_path_cache();

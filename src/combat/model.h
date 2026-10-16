@@ -1,7 +1,9 @@
 #pragma once
 // Pure fight-model types. No cambc.h here: this compiles natively for the host tests.
 // Kinds and passives mirror the SDK's ability_kind and passive_type (same order).
+#include <cstddef>
 #include <cstdint>
+#include <vector>
 
 enum class AbilityKind : std::uint8_t { None, AttackReset, Damage, AoeDamage, Cc, Heal, Dash, Shield };
 enum class Passive : std::uint8_t { None, BonusGold, RemoteShop, GemFocus, SplashAttack, HealthStrength,
@@ -47,6 +49,8 @@ struct DuelSetup {
     float camp_damage_to_us_per_round = 0, camp_damage_to_enemy_per_round = 0;
 };
 
+struct PathPoint;
+
 struct FightOptions {
     bool include_camps = false;
     int round_cap = 60;
@@ -54,6 +58,10 @@ struct FightOptions {
     // simulation stops searching at 60% of the budget and stops entirely (unresolved) at 100%.
     std::uint64_t (*fuel_left)() = nullptr;
     std::uint64_t fuel_budget = 0;
+    // Fast version only: receives the state at the start of each of our turns along the predicted
+    // path, so a later turn that lands exactly on it can reuse the answer (path_cache.h).
+    std::vector<PathPoint>* path_out = nullptr;
+    std::size_t path_max_points = 64;   // stop recording after this many points
     // Debugging only: called after every turn with the state (fast-forward is off when set).
     void (*on_turn)(int turn, bool ours, const Fighter& us, const Fighter& enemy, int distance) = nullptr;
 };
@@ -64,6 +72,14 @@ struct FightResult {
     float enemy_health_at_end = 0;
     int turns = 0;            // turns simulated (ours and theirs)
     bool resolved = false;   // false: round cap reached or no fight possible
+};
+
+// The model's input at the start of one of our turns on a predicted path, `turn` turns after
+// the prediction was made. Running the model on `setup` gives the same answer with `turn` fewer
+// turns.
+struct PathPoint {
+    int turn = 0;
+    DuelSetup setup;
 };
 
 inline bool same_fighter(const Fighter& a, const Fighter& b) {
