@@ -2,14 +2,27 @@
 #include <algorithm>
 #include <string_view>
 #include <vector>
-#include "../core/rng.h"
+#include "../constants/draft_constants.h"
+namespace {
+bool already_picked(const std::vector<cambc::champion_draft>& chosen, cambc::champion_draft pick) {
+    return std::find(chosen.begin(), chosen.end(), pick) != chosen.end();
+}
+}
 void play_draft() {
     const auto chosen = cambc::draft::current_draft(cambc::team::ally);
-    std::vector<cambc::champion_draft> available;
-    for (int i = 0; i < 11; ++i) {
-        auto pick = static_cast<cambc::champion_draft>(i);
-        if (std::find(chosen.begin(), chosen.end(), pick) == chosen.end()) available.push_back(pick);
-    }
     cambc::draft_memory = std::string_view("", 0);
-    cambc::draft::pick(available.at(random_number(available.size())));
+    for (const auto pick : constants::draft_priority) {
+        if (!already_picked(chosen, pick)) {
+            cambc::draft::pick(pick);
+            return;
+        }
+    }
+    // Priority list exhausted: take the lowest-numbered champion still free.
+    for (int i = 0; i < 11; ++i) {
+        const auto pick = static_cast<cambc::champion_draft>(i);
+        if (!already_picked(chosen, pick)) {
+            cambc::draft::pick(pick);
+            return;
+        }
+    }
 }

@@ -2,6 +2,7 @@
 #include <cambc.h>
 #include <optional>
 struct ChampionProfile;
+struct MatchData;
 struct TurnContext {
     std::uint32_t round_number;
     const ChampionProfile& profile;
@@ -10,5 +11,6 @@ struct TurnContext {
     struct Resources { std::optional<std::uint32_t> gold; std::optional<std::uint32_t> gems; } resources;
     struct Stats { std::optional<std::int32_t> health; std::optional<std::int32_t> max_health; } stats;
     cambc::vec2 position;
+    MatchData* match_data = nullptr;
     TurnContext(const ChampionProfile& profile_ref);
 };

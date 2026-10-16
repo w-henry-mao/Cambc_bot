@@ -1,6 +1,8 @@
 #include "bot.h"
+#include "debug/fuel_meter.h"
 #include "init/initializer.h"
 #include "core/context.h"
+#include "core/world.h"
 #include "brain/state_selector.h"
 #include "states/shop.h"
 #include "states/recall.h"
@@ -14,7 +16,7 @@ bool Bot::turn_guard() {
     auto& me = cambc::self();
     if (!me.is_alive()) {
         shop_pre_step();
-        memory_.current_state = std::monostate{};
+        match_data_.last_health = -1;
         return false;
     }
     if (me.is_recalling() || me.is_submitting_gems() || me.is_teleporting()) return false;
@@ -23,11 +25,18 @@ bool Bot::turn_guard() {
 }
 void Bot::post_turn() {}
 void Bot::play_turn() {
+    debug::FuelMeter whole("turn total");
     if (!match_data_.initialized) run_init_stages(match_data_, memory_);
-    if (!turn_guard()) return;
+    if (!match_data_.initialized) return;
+    if (!turn_guard()) {
+        if (cambc::self().is_alive()) match_data_.last_health = cambc::self().health();
+        return;
+    }
+    update_world(match_data_);
     shop_pre_step();
     static ChampionProfile placeholder_profile{.is_ranged = false, .skills = {}, .linked_pair = false};
     TurnContext ctx(placeholder_profile);
+    ctx.match_data = &match_data_;
     StateSelector selector;
     selector.add_state(&recall_state_instance, State::Recall);
     selector.add_state(&attack_state_instance, State::Attack);
@@ -35,4 +44,5 @@ void Bot::play_turn() {
     selector.add_state(&farm_state_instance, State::Farm);
     selector.select_and_execute(ctx, memory_);
     post_turn();
+    debug::report_fuel();
 }
