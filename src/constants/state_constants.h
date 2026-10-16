@@ -7,7 +7,7 @@ constexpr float kRecallHpFraction = 0.35f;
 constexpr std::uint32_t kTributeGems = 40;
 constexpr int kTributeIfAltarWithin = 8;
 // Camp value: (gems + gold x kGoldWeight) x kRoundDiscount ^ (walk + kill + capture rounds).
-constexpr float kRoundDiscount = 0.99f;
+constexpr float kRoundDiscount = 0.97f;
 constexpr float kGoldWeight = 0.25f;
 // Only camps within this walk are considered (the search stops there).
 constexpr int kCampSearchRange = 60;
