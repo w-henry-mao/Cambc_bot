@@ -1,8 +1,9 @@
 #include "casting.h"
 #include "../core/roster.h"
+#include "../combat/our_policy.h"
+// The order of combat steps here and in states/attack.cpp is mirrored by the fight simulator
+// (combat/simulator.cpp); the definitions it shares live in combat/our_policy.h.
 namespace {
-constexpr float kSupportBelow = 0.8f;
-
 bool offensive(const cambc::ability& ab) { return ab.is_damage() || ab.is_aoe_damage() || ab.is_cc(); }
 
 template <class Target> bool in_attack_range(const Target& target) {

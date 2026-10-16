@@ -5,6 +5,9 @@
 #include "../debug/log.h"
 #include <algorithm>
 
+namespace { State last_selected = State::None; std::uint32_t last_selected_round = 0; }
+State last_selected_state() { return last_selected_round == cambc::round_number() ? last_selected : State::None; }
+
 void StateSelector::add_state(StateModule* module, State state_enum) {
     states_.push_back({module, state_enum});
 }
@@ -14,7 +17,8 @@ void StateSelector::select_and_execute(TurnContext& ctx, BotMemory& memory) {
         int score = entry.module->score(ctx);
         if (score > 0) scores.push_back({entry.state_enum, score});
     }
-    if (scores.empty()) return;
+    last_selected_round = cambc::round_number();
+    if (scores.empty()) { last_selected = State::None; return; }
     std::sort(scores.begin(), scores.end(),
         [](const auto& a, const auto& b) {
             if (a.second != b.second) return a.second > b.second;
@@ -50,6 +54,7 @@ void StateSelector::select_and_execute(TurnContext& ctx, BotMemory& memory) {
             chosen_module = get_module_for_state(current_state);
         }
     }
+    last_selected = chosen_state;
     if (chosen_module) {
         try {
             chosen_module->execute(ctx, memory);

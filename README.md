@@ -68,6 +68,14 @@ src/
 │   └── ryth, stellar, tavi, willow, cassi, issac, prism, vesper_vale,
 │       vendetta, marcella, ren, varg  (.cpp each, stub profiles)
 │
+├── combat/                      Fight calculator (docs/combat-accuracy.md, docs/combat-rules.md)
+│   ├── model.h, design_table.h  Pure model types; generated champion data (tools/gen_design_table.py)
+│   ├── simulator.h/.cpp         Duel simulation: our attack logic vs a max-aggression enemy
+│   ├── our_policy.h/.cpp        Combat decisions shared with states/attack.cpp, skills/casting.cpp
+│   ├── turn_order.h/.cpp        Who acts when
+│   ├── sdk_adapter.h/.cpp       predict_duel_fast/full, two_v_one_favourable (live SDK state in)
+│   └── sdk_trace, sdk_duel_mode Test-build logging and duel mode (off in normal builds)
+│
 └── debug/
     ├── log.h                    constexpr bool kLogging (compiles to nothing when off)
     ├── fuel_meter.h             Scoped fuel-used helper
@@ -186,3 +194,32 @@ Init stages run before baseline states, so states must not depend on `MatchData`
 2. Create `skills/my_skill.cpp` defining `can_use()`, `use()` and the instance
 3. Include the header in `skills/skill_instances.h`
 4. Add instance to champion profiles in `champions/*.cpp`
+
+## Fight Calculator
+
+```cpp
+#include "combat/sdk_adapter.h"
+FightResult r = predict_duel_fast(enemy);   // normal turns: <=15k fuel of simulation, may be unresolved
+FightResult r = predict_duel_full(enemy);   // spare-fuel turns (recall/tribute): searches stun timing
+bool ok = two_v_one_favourable(ally_a, ally_b, enemy);
+```
+
+`FightResult` gives `we_win`, `our_health_worst_case` (enemy maximally aggressive),
+`enemy_health_at_end`, `turns` and `resolved`. Call with a visible enemy only (otherwise the
+result is unresolved).
+
+Things callers should know:
+- The model has our champion keep fighting the way the attack state does. In real games the
+  recall state (score 100) takes over below 35% health, so a real fight may end in a retreat
+  rather than the predicted finish.
+- `resolved == false` means "no answer": fuel ran short, the round cap was reached, or the
+  enemy is not visible. Treat it as unknown, not as a loss.
+- The fast version spends at most 15,000 fuel simulating, never more than the turn has left
+  after a 25,000 reserve; the full version uses everything above that reserve.
+- `two_v_one_favourable` never takes the "either ally wins alone" shortcut for Cassi and Issac,
+  who die together.
+
+Tests: `make -C tests test` (host, no SDK). Exact duels: `python3 tools/duel_harness.py`.
+In-match accuracy: `python3 tools/accuracy_runs.py`. Test builds come from
+`tools/make_test_variant.py` (overrides in a git-ignored `src/constants/test_overrides.h`).
+

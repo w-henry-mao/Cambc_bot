@@ -12,3 +12,9 @@ dev.zip
 
 # Development scripts (bot is pure C++)
 *.sh
+
+# Test-build overrides (tools/make_test_variant.py); never committed
+src/constants/test_overrides.h
+
+# Python bytecode
+__pycache__/

@@ -4,6 +4,8 @@
 #include "core/context.h"
 #include "core/world.h"
 #include "brain/state_selector.h"
+#include "combat/sdk_trace.h"
+#include "combat/sdk_duel_mode.h"
 #include "states/shop.h"
 #include "states/recall.h"
 #include "states/attack.h"
@@ -23,9 +25,13 @@ bool Bot::turn_guard() {
     if (!me.can_move() && !me.can_attack()) return false;
     return true;
 }
-void Bot::post_turn() {}
+void Bot::post_turn() {
+    combat_trace_turn();
+    duel_mode_end_of_turn();   // test builds only
+}
 void Bot::play_turn() {
     debug::FuelMeter whole("turn total");
+    struct PostTurn { Bot* bot; ~PostTurn() { bot->post_turn(); } } post_turn_guard{this};   // runs on every exit
     if (!match_data_.initialized) run_init_stages(match_data_, memory_);
     if (!match_data_.initialized) return;
     if (!turn_guard()) {
@@ -34,6 +40,7 @@ void Bot::play_turn() {
     }
     update_world(match_data_);
     shop_pre_step();
+    if (duel_mode_turn()) return;   // test builds only
     static ChampionProfile placeholder_profile{.is_ranged = false, .skills = {}, .linked_pair = false};
     TurnContext ctx(placeholder_profile);
     ctx.match_data = &match_data_;
@@ -42,7 +49,7 @@ void Bot::play_turn() {
     selector.add_state(&attack_state_instance, State::Attack);
     selector.add_state(&tribute_state_instance, State::Tribute);
     selector.add_state(&farm_state_instance, State::Farm);
+    combat_trace_turn_start();
     selector.select_and_execute(ctx, memory_);
-    post_turn();
     debug::report_fuel();
 }
