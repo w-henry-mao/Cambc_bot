@@ -69,3 +69,15 @@
 #ifndef RECALL_BUSH_BONUS
 #define RECALL_BUSH_BONUS 3.0f
 #endif
+// Test opponent: buy an altar lock whenever possible and place it on any unlocked altar in range.
+#ifndef TEST_ALTAR_LOCKER
+#define TEST_ALTAR_LOCKER false
+#endif
+// Break enemy altar locks in the tribute state (false: the old behaviour, for A/B tests), and a
+// score/lock log for those tests.
+#ifndef BREAK_ALTAR_LOCKS
+#define BREAK_ALTAR_LOCKS true
+#endif
+#ifndef SCORE_TRACE
+#define SCORE_TRACE false
+#endif

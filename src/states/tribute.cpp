@@ -1,4 +1,6 @@
 #include <cambc.h>
+#include <iostream>
+#include "../constants/test_hooks.h"
 #include "tribute.h"
 #include "../core/context.h"
 #include "../core/geometry.h"
@@ -31,11 +33,30 @@ int TributeState::score(const TurnContext& ctx) {
 }
 StateResult TributeState::execute(TurnContext& ctx, BotMemory& memory) {
     auto& me = cambc::self();
+    // An enemy altar lock blocks our tributes at that altar until three basic attacks break it;
+    // our own locks do not block us.
+    const auto enemy_locks = cambc::vision::altar_locks(cambc::team::enemy);
+    auto enemy_locked = [&](vec2 altar) {
+        if constexpr (!BREAK_ALTAR_LOCKS) return cambc::vision::has_altar_lock(altar);   // old behaviour (tests)
+        for (const auto& lock : enemy_locks)
+            if (lock.position() == altar) return true;
+        return false;
+    };
     for (auto altar : cambc::map::altars().positions()) {
-        if (distance(me.position(), altar) <= cambc::constants::submit_gems_range && !cambc::vision::has_altar_lock(altar)) {
+        if (distance(me.position(), altar) <= cambc::constants::submit_gems_range && !enemy_locked(altar)) {
             me.submit_gems(altar);
             return StateResult::Done;
         }
+    }
+    // At a locked altar: break the lock, then tribute once it is gone.
+    if (BREAK_ALTAR_LOCKS && me.can_attack()) {
+        const auto attack_tiles = me.attack_tiles();
+        for (const auto& lock : enemy_locks)
+            if (distance(me.position(), lock.position()) <= cambc::constants::submit_gems_range && attack_tiles.is_set(lock.position())) {
+                me.attack(lock);
+                if constexpr (SCORE_TRACE) std::cout << "LOCK_HIT r=" << cambc::round_number() << '\n';
+                return StateResult::Continue;
+            }
     }
     if (!me.can_move()) return StateResult::Continue;
     // Walk down the precomputed altar distance (terrain only, so cheap). If units or camps block
@@ -54,8 +75,9 @@ StateResult TributeState::execute(TurnContext& ctx, BotMemory& memory) {
     }
     cambc::bitboard approach;
     approach.clear();
+    // Locked altars count too: we break enemy locks when we get there.
     for (const auto altar : cambc::map::altars().positions())
-        if (!cambc::vision::has_altar_lock(altar)) approach |= tiles_around(altar, cambc::constants::submit_gems_range);
+        if (BREAK_ALTAR_LOCKS || !cambc::vision::has_altar_lock(altar)) approach |= tiles_around(altar, cambc::constants::submit_gems_range);
     move_towards_closest(approach);
     return StateResult::Continue;
 }

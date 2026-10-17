@@ -213,6 +213,16 @@ and 64, so `sweep_team_header()` clears expired entries at the start of every ch
 normal matches and in 24 test-caller matches with unlimited fuel; it also fixes a wrap-around
 bug in the old 8-bit round stamp that let a fight call come back exactly 256 rounds later.
 
+## Enemy Altar Locks
+
+An enemy altar lock blocks our tributes at that altar until three basic attacks break it (our own
+locks do not block us). The tribute state treats locked altars as normal destinations: at one it
+attacks the lock, then tributes once it is gone. Tested against a test opponent that places a
+lock on every altar it can (`TEST_ALTAR_LOCKER`), 68 matches over 17 maps and both sides: ahead at
+the end in 16/34 (old behaviour 6/34), mean banked gems 705 vs 652 (old 447 vs 765). Without
+locks, play is unchanged (identical replays). `BREAK_ALTAR_LOCKS=false` restores the old
+behaviour in test builds; `SCORE_TRACE` logs banked gems.
+
 ## Safe Recall
 
 Damage cancels a recall, so the recall state (`states/recall.cpp`) first gets out of reach of
