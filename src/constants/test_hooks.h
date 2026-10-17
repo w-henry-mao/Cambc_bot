@@ -85,3 +85,14 @@
 #ifndef OPENING_CLOSEST_CAMP
 #define OPENING_CLOSEST_CAMP true
 #endif
+// Each champion picks its own camp (false: the shared team target, for A/B tests).
+#ifndef PER_CHAMPION_CAMPS
+#define PER_CHAMPION_CAMPS false
+#endif
+// Per-champion camp tunables for test sweeps.
+#ifndef CAMP_TEAMMATE_BONUS
+#define CAMP_TEAMMATE_BONUS 6.0f
+#endif
+#ifndef MAX_CAMP_SHARE_NEAR_SPAWN
+#define MAX_CAMP_SHARE_NEAR_SPAWN 0.6f
+#endif

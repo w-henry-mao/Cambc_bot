@@ -213,13 +213,24 @@ and 64, so `sweep_team_header()` clears expired entries at the start of every ch
 normal matches and in 24 test-caller matches with unlimited fuel; it also fixes a wrap-around
 bug in the old 8-bit round stamp that let a fight call come back exactly 256 rounds later.
 
-## Farming: Opening
+## Farming: Opening and Per-Champion Camps
 
 - Opening (`kOpeningClosestCamp`): at match start each champion farms the camp group with the
   shortest walk from where it stands until that group is cleared and starts respawning (or
   `kOpeningMaxRounds` pass), then farms normally. 136 matches: head-to-head vs the old opening
   ahead in 16/34 with mean banked gems 771 vs 732 (ahead by 7 at round 100, 21 at round 200);
   against 3 opponents ahead in 36/51 (old 31/51). A small, consistent gain.
+- Per-champion camps (`kPerChampionCamps`): no shared team target; each champion picks its own
+  best group, counting teammates within `kHelpRadius` (seen, or from position reports) as
+  helpers plus `kCampTeammateBonus` each. Groups within `kNearSpawnWalk` of spawn may use
+  `kMaxCampDamageShareNearSpawn`. Tested (85-136 matches per setting): letting near-spawn camps
+  cost up to 100% health hurt (ahead 31/51 vs 36/51 for the team target), so that limit is 0.6
+  like everywhere else; with it, per-champion choice is about even with the team target
+  (head-to-head 20/34, against 3 opponents 34/51 vs 36/51). It banks more early (round 100)
+  and about the same later. Bonus 20 instead of 6 did not help. In the full regression (all
+  features on, 272 + 340 matches) it was the one feature that cost gems: switching it off
+  raised banked gems by ~120-200 a game against starters and the rush opponent (e.g. 9/17 ->
+  14/17 wins vs opp-rush), so it is now off by default.
 
 ## Enemy Gems
 

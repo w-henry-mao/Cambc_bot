@@ -5,6 +5,8 @@
 #include "farm.h"
 #include "../comms/shared_memory.h"
 #include "../comms/team_comms.h"
+#include "../comms/ally_positions.h"
+#include "../constants/combat_constants.h"
 #include "../core/context.h"
 #include "../core/geometry.h"
 #include "../core/match_data.h"
@@ -92,6 +94,44 @@ std::optional<int> read_team_target(const MatchData& match) {
 }
 }
 
+// Per-champion choice (constants::kPerChampionCamps): our own best group, counting teammates
+// near each group as helpers plus a bonus each. Keeps `current` unless another is clearly better.
+std::optional<int> own_best_camp(const MatchData& match, const cambc::distance_field& field, float dps, std::optional<int> current) {
+    auto& me = cambc::self();
+    // Teammates' positions: exact while visible, else their last position report.
+    cambc::vec2 mates[8];
+    int n_mates = 0;
+    const auto& allies = roster_allies();
+    const auto round = cambc::round_number();
+    for (int i = 0; i < static_cast<int>(allies.size()) && n_mates < 8; ++i) {
+        const auto& a = allies[static_cast<std::size_t>(i)];
+        if (a == me) continue;
+        if (in_view(a)) { mates[n_mates++] = a.position(); continue; }
+        const auto& report = ally_position(i);
+        if (report.known && round - report.heard_round <= 2u * static_cast<std::uint32_t>(constants::kAllyPositionMaxAge)) mates[n_mates++] = report.pos;
+    }
+    const float health = me.health();
+    const std::size_t width = static_cast<std::size_t>(match.map_width);
+    Pick best, kept;
+    for (int i = 0; i < static_cast<int>(match.camp_groups.size()); ++i) {
+        const auto& group = match.camp_groups[static_cast<std::size_t>(i)];
+        const int walk = field.get(group.centre);
+        if (walk == kUnreached) continue;
+        int helpers = 0;
+        for (int k = 0; k < n_mates; ++k) helpers += static_cast<int>(mates[k].chebyshev_distance(group.centre)) <= constants::kHelpRadius;
+        const std::size_t idx = static_cast<std::size_t>(group.centre.y) * width + static_cast<std::size_t>(group.centre.x);
+        const bool near_spawn = width > 0 && idx < match.home_walk.size() && match.home_walk[idx] <= constants::kNearSpawnWalk;
+        const auto value = camp_value(group, walk, Team{dps * static_cast<float>(1 + helpers), 1 + helpers}, health,
+                                      near_spawn ? constants::kMaxCampDamageShareNearSpawn : constants::kMaxCampDamageShare);
+        if (!value) continue;
+        const float v = *value + constants::kCampTeammateBonus * static_cast<float>(helpers);
+        if (current == i) kept = {i, v};
+        if (!best.group || v > best.value) best = {i, v};
+    }
+    if (kept.group && best.value < constants::kSwitchFactor * kept.value) return kept.group;
+    return best.group;
+}
+
 // Once per round: our farm target. Go solo when a camp we can take alone is worth at least as
 // much as the team target; otherwise join the team target.
 std::optional<int> farm_target(MatchData& match) {
@@ -109,7 +149,9 @@ std::optional<int> farm_target(MatchData& match) {
     const float dps = my_dps();
     const int team_size = std::max(1, alive_allies());
     std::optional<int> team_target;
-    if (i_lead()) {
+    if (constants::kPerChampionCamps) {
+        // No shared team target: every champion decides for itself (opening first, below).
+    } else if (i_lead()) {
         team_target = best_camp(match, field, Team{dps * static_cast<float>(team_size), team_size}, match.farm_target).group;
         write_team_target(team_target);
     } else {
@@ -136,6 +178,10 @@ std::optional<int> farm_target(MatchData& match) {
                 return match.farm_target;
             }
         }
+    }
+    if constexpr (constants::kPerChampionCamps) {
+        match.farm_target = own_best_camp(match, field, dps, match.farm_target);
+        return match.farm_target;
     }
     const auto solo = best_camp(match, field, Team{dps, 1}, match.farm_target);
     float team_value = 0;

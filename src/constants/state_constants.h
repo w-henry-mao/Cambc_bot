@@ -49,4 +49,13 @@ constexpr float kRecallBushBonus = RECALL_BUSH_BONUS;   // 3
 // kOpeningMaxRounds is a safety cap in case the group is never cleared.
 constexpr bool kOpeningClosestCamp = OPENING_CLOSEST_CAMP;
 constexpr std::uint32_t kOpeningMaxRounds = 200;
+// Per-champion camp choice (to-do #4): each champion picks its own best camp group instead of
+// following a shared team target. Teammates within kHelpRadius of a group (seen, or from
+// position reports) speed the kill, share the damage, and add kCampTeammateBonus each to its
+// value (value units: gems + gold x kGoldWeight). Groups within kNearSpawnWalk steps of spawn
+// may cost up to kMaxCampDamageShareNearSpawn of our health (we can recall and heal).
+constexpr bool kPerChampionCamps = PER_CHAMPION_CAMPS;   // off: lost ~120-200 gems a game in tests (README)
+constexpr float kCampTeammateBonus = CAMP_TEAMMATE_BONUS;   // 6 unless a test build overrides
+constexpr int kNearSpawnWalk = 15;
+constexpr float kMaxCampDamageShareNearSpawn = MAX_CAMP_SHARE_NEAR_SPAWN;   // 0.6 (= the normal limit; 1.0 tested worse)
 }
