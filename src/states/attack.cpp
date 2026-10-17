@@ -115,6 +115,17 @@ Targets pick_targets(int radius, const MatchData* match) {
 // fight call is live (combat/sdk_team_fight.h, brain/team_fight_call.cpp), the called enemy comes
 // first whenever it is within reach, and with nobody in reach we walk to it.
 int AttackState::score(const TurnContext& ctx) {
+    // Outnumbered nearby: leave the fight (farm, tribute or recall take over).
+    if constexpr (constants::kAvoidOutnumbered) {
+        const auto here = cambc::self().position();
+        const auto r = static_cast<std::uint32_t>(constants::kOutnumberRadius);
+        int enemies = 0, allies = 0;
+        for (const auto& e : roster_enemies())
+            if (in_view(e) && e.position().chebyshev_distance(here) <= r) ++enemies;
+        for (const auto& a : roster_allies())
+            if (in_view(a) && a.position().chebyshev_distance(here) <= r) ++allies;   // includes us
+        if (enemies > allies) return 0;
+    }
     // Carrying many gems: stay out of fights and bank them (tribute) instead.
     if constexpr (constants::kCarrierAvoidGems > 0)
         if (cambc::self().gem_count() >= static_cast<std::uint32_t>(constants::kCarrierAvoidGems)) return 0;

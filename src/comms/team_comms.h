@@ -11,3 +11,7 @@ void sweep_team_header();
 // Rally point (bytes 6-7, comms/shared_memory.h): write ours, read a fresh one (age <= max_age).
 void write_rally(int x, int y);
 team_comms::RallyField read_rally(int max_age);
+// Second farm group's target (bytes 6-7, only with constants::kSplitGroups): group + 1 and round.
+void write_group2_target(int group_plus1);
+// Group + 1 if written within max_age rounds, else 0.
+int read_group2_target(int max_age);

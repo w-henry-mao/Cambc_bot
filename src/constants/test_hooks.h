@@ -122,6 +122,13 @@
 #ifndef CARRIER_AVOID_GEMS
 #define CARRIER_AVOID_GEMS 0
 #endif
+// Two farm groups (states/farm.cpp) and avoiding outnumbered fights (states/attack.cpp).
+#ifndef SPLIT_GROUPS
+#define SPLIT_GROUPS false
+#endif
+#ifndef AVOID_OUTNUMBERED
+#define AVOID_OUTNUMBERED false
+#endif
 // Idle recall threshold (constants/state_constants.h kIdleRecallHpFraction).
 #ifndef IDLE_RECALL_HP
 #define IDLE_RECALL_HP 1.0f

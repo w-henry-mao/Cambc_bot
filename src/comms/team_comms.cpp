@@ -5,6 +5,7 @@
 #include <span>
 #include "shared_memory.h"
 #include "../constants/combat_constants.h"
+#include "../constants/state_constants.h"
 
 std::uint32_t read_team_header() {
     std::array<std::byte, 4> raw{};
@@ -33,6 +34,7 @@ void sweep_team_header() {
     const auto call = get_call(w);
     if (call.enemy_plus1 != 0 && age(round, call.round_low, kCallRoundBits) > constants::kTeamFightCallRounds) w = clear_call(w);
     if (w != word) write_team_header(w);
+    if constexpr (constants::kSplitGroups) return;   // bytes 6-7 hold the second group's target
     // Rally point: clear once expired so its 4-bit round stamp cannot wrap into looking fresh.
     std::array<std::byte, 2> raw{};
     cambc::shared_memory.read(kRallyByte, std::span{raw});
@@ -57,4 +59,18 @@ team_comms::RallyField read_rally(int max_age) {
     auto r = team_comms::unpack_rally(bits);
     if (r.set && team_comms::age(cambc::round_number(), r.round_low, team_comms::kRallyRoundBits) > max_age) r.set = false;
     return r;
+}
+
+void write_group2_target(int group_plus1) {
+    const std::array<std::byte, 2> raw{std::byte(static_cast<unsigned char>(group_plus1)),
+                                       std::byte(static_cast<unsigned char>(cambc::round_number() & 0xff))};
+    cambc::shared_memory.write(team_comms::kRallyByte, std::span{raw});
+}
+
+int read_group2_target(int max_age) {
+    std::array<std::byte, 2> raw{};
+    cambc::shared_memory.read(team_comms::kRallyByte, std::span{raw});
+    const int g = std::to_integer<int>(raw[0]);
+    const int age = static_cast<int>((cambc::round_number() - std::to_integer<unsigned>(raw[1])) & 0xff);
+    return g != 0 && age <= max_age ? g : 0;
 }

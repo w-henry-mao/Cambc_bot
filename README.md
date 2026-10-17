@@ -271,6 +271,27 @@ matches (same opponent versions and maps): games won 34/50 (v6 29, v5 27), gems 
 (v6 38,378, v5 36,476); first game won against Mite, and 25-35% more gems than v5 against each of
 Fish, Mite and The Mania (still 1/15 games against them).
 
+## Deaths, Splitting, Outnumbered Fights (tested, all off)
+
+Traces of v8 against the top six (`STATE_TRACE`, joined with the site's death events) showed about
+half our deaths happen mid-recall at low health with an enemy 1-4 tiles away, and the costly ones
+follow a lost fight where a survivor picks up the dead teammates' gems. Site rematches are
+deterministic (a rerun of v8's 30 top-six games reproduced all 30 exactly), so paired comparisons
+on the same 30 games measure real effects for those games.
+
+| Switch | Local, 204 paired vs v8 (wins, margin/game, p) | Head-to-head vs v8 | Site, 30 paired top-six games |
+|---|---|---|---|
+| `RECALL_HP_NEAR_ENEMY` 0.5 | 188 vs 190, -19, p=0.39 | 18/34 | margin +12/game (t=0.26), 8 better / 10 worse; wins 1 vs 1 |
+| `CARRIER_AVOID_GEMS` 40 | 191 vs 190, -8, p=0.59 | 11/34 (p=0.06) | not run |
+| both | 190 vs 190, -23, p=0.29 | 15/34 | margin -35/game (t=-1.07), 6 better / 12 worse; wins 0 vs 1 |
+| `SPLIT_GROUPS` (Ren, Cassi & Issac / rest) | 182 vs 190, -43, p=0.05 | 14/34 | not run |
+| `AVOID_OUTNUMBERED` | 181 vs 190, -79, p<0.001 | 14/34 | not run |
+| split + avoid | 168 vs 190, -167, p<0.001 | 12/34 | not run |
+
+None is better. Early recall changes single top-team games a lot in both directions (eight vs
+The Mania became a 1039:501 win; pilgrimage vs Mite, our only win, became a loss) but not on
+average. On elkring alone (12 matches) splitting banked 1006 vs 993 with the same wins.
+
 ## Idle Recall and Pathing Tie-Break (tested, no change)
 
 - Idle recall (`IDLE_RECALL_HP`, `states/recall.cpp`): with nothing to farm, a hurt champion

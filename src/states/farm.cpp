@@ -70,11 +70,12 @@ bool gem_starved(const MatchData& match, const Team& team, float my_health) {
 }
 
 Pick best_camp(const MatchData& match, const cambc::distance_field& field, const Team& team, std::optional<int> current,
-               bool starved) {
+               bool starved, std::optional<int> exclude = std::nullopt) {
     const float health = cambc::self().health();
     const bool gem_group_ok = !starved;
     Pick best, kept;
     for (int i = 0; i < static_cast<int>(match.camp_groups.size()); ++i) {
+        if (exclude == i) continue;
         const auto& group = match.camp_groups[static_cast<std::size_t>(i)];
         const int walk = field.get(group.centre);
         if (walk == kUnreached) continue;
@@ -112,6 +113,31 @@ std::optional<int> read_team_target(const MatchData& match) {
     if (group < 0 || group >= static_cast<int>(match.camp_groups.size()) || age > team_comms::kFarmTargetRounds) return std::nullopt;
     return group;
 }
+}
+
+// Two groups (constants::kSplitGroups), by roster position (draft order: Ren, Stellar, Cassi,
+// Issac, Ryth, Tavi): Ren and Cassi & Issac (linked, so together) in group 0, the rest in 1.
+// Positions, not champion_name(): reading another champion's type can throw.
+int group_of_index(int i) { return i == 0 || i == 2 || i == 3 ? 0 : 1; }
+int my_roster_index() {
+    const auto& allies = roster_allies();
+    for (int i = 0; i < static_cast<int>(allies.size()); ++i)
+        if (allies[static_cast<std::size_t>(i)] == cambc::self()) return i;
+    return 0;
+}
+// Alive members of each group.
+std::array<int, 2> group_sizes() {
+    std::array<int, 2> n{0, 0};
+    const auto& allies = roster_allies();
+    for (int i = 0; i < static_cast<int>(allies.size()); ++i)
+        if (allies[static_cast<std::size_t>(i)].is_alive()) ++n[static_cast<std::size_t>(group_of_index(i))];
+    return n;
+}
+bool i_lead_group(int g) {
+    const auto& allies = roster_allies();
+    for (int i = 0; i < static_cast<int>(allies.size()); ++i)
+        if (allies[static_cast<std::size_t>(i)].is_alive() && group_of_index(i) == g) return allies[static_cast<std::size_t>(i)] == cambc::self();
+    return false;
 }
 
 // Per-champion choice (constants::kPerChampionCamps): our own best group, counting teammates
@@ -172,8 +198,30 @@ std::optional<int> farm_target(MatchData& match) {
     // normal limit (normal maps have wolves, elks or gem clusters; stampede and contest only monoliths).
     const bool starved = gem_starved(match, Team{dps, 1}, me.max_health());
     std::optional<int> team_target;
+    int target_size = team_size;   // champions sharing the target we follow
+    std::array<int, 2> sizes{0, 0};
+    if constexpr (constants::kSplitGroups) sizes = group_sizes();
+    const bool split = constants::kSplitGroups && sizes[0] >= 2 && sizes[1] >= 2;
     if (constants::kPerChampionCamps) {
         // No shared team target: every champion decides for itself (opening first, below).
+    } else if (split) {
+        // Two groups: group 0 uses the header's farm target, group 1 bytes 6-7 and avoids group 0's.
+        const int g = group_of_index(my_roster_index());
+        target_size = sizes[static_cast<std::size_t>(g)];
+        if (g == 0) {
+            if (i_lead_group(0)) {
+                team_target = best_camp(match, field, Team{dps * static_cast<float>(target_size), target_size}, match.farm_target, starved).group;
+                write_team_target(team_target);
+            } else {
+                team_target = read_team_target(match);
+            }
+        } else if (i_lead_group(1)) {
+            team_target = best_camp(match, field, Team{dps * static_cast<float>(target_size), target_size}, match.farm_target, starved,
+                                    read_team_target(match)).group;
+            write_group2_target(team_target ? *team_target + 1 : 0);
+        } else if (const int g2 = read_group2_target(team_comms::kFarmTargetRounds); g2 > 0 && g2 <= static_cast<int>(match.camp_groups.size())) {
+            team_target = g2 - 1;
+        }
     } else if (i_lead()) {
         team_target = best_camp(match, field, Team{dps * static_cast<float>(team_size), team_size}, match.farm_target, starved).group;
         write_team_target(team_target);
@@ -212,7 +260,7 @@ std::optional<int> farm_target(MatchData& match) {
         const auto& group = match.camp_groups[static_cast<std::size_t>(*team_target)];
         const int walk = field.get(group.centre);
         if (walk != kUnreached)
-            if (const auto v = camp_value(group, walk, Team{dps * static_cast<float>(team_size), team_size}, me.health(),
+            if (const auto v = camp_value(group, walk, Team{dps * static_cast<float>(target_size), target_size}, me.health(),
                                           starved && group.gem_value > 0 ? constants::kMaxCampDamageShareGemStarved : constants::kMaxCampDamageShare))
                 team_value = *v;
     }

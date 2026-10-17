@@ -10,6 +10,12 @@ constexpr float kRecallHpNearEnemy = RECALL_HP_NEAR_ENEMY;
 constexpr int kRecallNearEnemyDist = 6;
 // Carrying at least this many gems, do not start or join fights (0 = off).
 constexpr int kCarrierAvoidGems = CARRIER_AVOID_GEMS;
+// Farm in two groups (Ren, Cassi & Issac / the rest) while each has two or more alive; the second
+// group's target is in shared memory bytes 6-7 (comms/team_comms.h).
+constexpr bool kSplitGroups = SPLIT_GROUPS;
+// Do not start or continue a fight with more enemy than allied champions within kOutnumberRadius.
+constexpr bool kAvoidOutnumbered = AVOID_OUTNUMBERED;
+constexpr int kOutnumberRadius = 8;
 // With nothing to farm, recall below this fraction of max health (1 = whenever hurt; 0 = never).
 constexpr float kIdleRecallHpFraction = IDLE_RECALL_HP;
 // Tribute when carrying this many gems, or any gems when an altar is this close.
