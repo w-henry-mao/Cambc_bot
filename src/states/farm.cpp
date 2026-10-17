@@ -2,6 +2,8 @@
 #include <array>
 #include <cstddef>
 #include <span>
+#include <tuple>
+#include <vector>
 #include "farm.h"
 #include "../comms/shared_memory.h"
 #include "../comms/team_comms.h"
@@ -37,9 +39,10 @@ float my_dps() { auto& me = cambc::self(); return me.strength() + constants::kAb
 std::optional<float> camp_value(const CachedCampGroup& group, int walk, const Team& team, float my_health,
                                 float max_damage_share = constants::kMaxCampDamageShare) {
     const auto round = cambc::round_number();
-    if (group.respawn_ready_round > round + static_cast<std::uint32_t>(walk)) return std::nullopt;   // still respawning on arrival
+    if (respawn_ready(group) > round + static_cast<std::uint32_t>(walk)) return std::nullopt;   // still respawning on arrival
     int kill = 0;
-    if (!group.reward_waiting) {
+    // A reward we left to a teammate was collected by now, and the camps are back.
+    if (!group.reward_waiting || group.left_to_teammate_round) {
         if (team.dps <= 0) return std::nullopt;
         kill = static_cast<int>(group.design_health / team.dps) + 1;
         // Camps hit one champion at a time; skip camps that would hurt us too much.
@@ -154,9 +157,9 @@ std::optional<int> own_best_camp(const MatchData& match, const cambc::distance_f
 
 // Once per round: our farm target. Go solo when a camp we can take alone is worth at least as
 // much as the team target; otherwise join the team target.
-std::optional<int> farm_target(MatchData& match) {
+std::optional<int> farm_target(MatchData& match, bool force) {
     static std::uint32_t round = 0;
-    if (round == cambc::round_number()) return match.farm_target;
+    if (!force && round == cambc::round_number()) return match.farm_target;
     round = cambc::round_number();
     auto& me = cambc::self();
     cambc::distance_field field;
@@ -193,7 +196,7 @@ std::optional<int> farm_target(MatchData& match) {
                     if (walk < best_walk) { best_walk = walk; opening = i; }
                 }
             }
-            const bool cleared = opening && match.camp_groups[static_cast<std::size_t>(*opening)].respawn_ready_round > round;
+            const bool cleared = opening && respawn_ready(match.camp_groups[static_cast<std::size_t>(*opening)]) > round;
             if (!opening || cleared || round > constants::kOpeningMaxRounds) {
                 opening_done = true;
             } else {
@@ -246,6 +249,62 @@ std::optional<cambc::vec2> group_anchor() {
     }
     return std::nullopt;
 }
+
+// Items as shards: a shard counts 1 and an emblem kEmblemShards (emblems cannot be bought). The
+// weight of each item kind is looked up once; nullopt if the items cannot be read.
+std::optional<int> item_shards(const cambc::champion& c) {
+    try {
+        const auto counts = c.item_count();
+        static std::vector<int> weights;
+        if (weights.empty())
+            for (std::uint32_t i = 0; i < counts.size(); ++i)
+                weights.push_back(cambc::item_type(i).is_purchasable() ? 1 : constants::kEmblemShards);
+        int shards = 0;
+        std::size_t i = 0;
+        for (const auto n : counts) shards += static_cast<int>(n) * weights[i++];
+        return shards;
+    } catch (const cambc::error&) {
+        return std::nullopt;
+    }
+}
+
+int distance_to_group(const CachedCampGroup& group, cambc::vec2 position) {
+    int best = 1 << 20;
+    for (const auto tile : group.spawn_positions) best = std::min(best, distance(tile, position));
+    return best;
+}
+
+// Single collector (constants::kSingleCollector): whether a teammate rather than us should
+// collect `group`'s reward and already stands on one of its spawn tiles. Every champion ranks the
+// visible champions within kCollectorRadius of the group the same way: fewest items, then
+// closest, then roster order.
+bool teammate_collects(const CachedCampGroup& group) {
+    auto& me = cambc::self();
+    const auto& allies = roster_allies();
+    const cambc::champion* collector = nullptr;
+    std::tuple<int, int, int> best{};
+    for (int i = 0; i < static_cast<int>(allies.size()); ++i) {
+        const auto& a = allies[static_cast<std::size_t>(i)];
+        if (!(a == me) && !in_view(a)) continue;
+        if (a.is_recalling() || a.is_submitting_gems() || a.is_teleporting()) continue;
+        const int d = distance_to_group(group, a.position());
+        if (d > constants::kCollectorRadius) continue;
+        const auto shards = item_shards(a);
+        if (!shards) continue;
+        const std::tuple<int, int, int> key{*shards, d, i};
+        if (!collector || key < best) { collector = &a; best = key; }
+    }
+    return collector && !(*collector == me) && group.spawn_tiles.is_set(collector->position());
+}
+
+// Step onto a reachable tile outside the group's spawn tiles.
+void step_off(const CachedCampGroup& group) {
+    auto& me = cambc::self();
+    if (!me.can_move()) return;
+    const auto blocked = blocked_tiles();
+    for (const auto tile : blocked.reachable_tiles(me.position(), me.base_stats().base_move_speed).positions())
+        if (!group.spawn_tiles.is_set(tile) && me.move_absolute(tile)) break;
+}
 }
 
 StateResult FarmState::execute(TurnContext& ctx, BotMemory& memory) {
@@ -290,6 +349,18 @@ StateResult FarmState::execute(TurnContext& ctx, BotMemory& memory) {
             return StateResult::Continue;
         }
     }
+    if constexpr (constants::kSingleCollector) {
+        // A teammate collects this reward: leave it the spawn tiles and farm something else.
+        auto& target = match.camp_groups[static_cast<std::size_t>(*match.farm_target)];
+        if (target.reward_waiting && !target.left_to_teammate_round && teammate_collects(target)) {
+            target.left_to_teammate_round = cambc::round_number();
+            if (target.spawn_tiles.is_set(me.position())) {
+                step_off(target);
+                return StateResult::Continue;
+            }
+            if (!farm_target(match, true)) return StateResult::Failed;
+        }
+    }
     const auto& group = match.camp_groups[static_cast<std::size_t>(*match.farm_target)];
     // Hit the weakest live camp of our target in range: ability first, then basic attack.
     const cambc::camp* weakest = nullptr;
@@ -304,14 +375,16 @@ StateResult FarmState::execute(TurnContext& ctx, BotMemory& memory) {
     if (group.spawn_tiles.is_set(me.position())) {
         if (group.reward_waiting) return StateResult::Continue;   // capturing
         // Captured already: an occupied spawn tile stops the whole group respawning, so step off.
-        if (me.can_move()) {
-            const auto blocked = blocked_tiles();
-            for (const auto tile : blocked.reachable_tiles(me.position(), me.base_stats().base_move_speed).positions())
-                if (!group.spawn_tiles.is_set(tile) && me.move_absolute(tile)) break;
-        }
+        step_off(group);
         return StateResult::Continue;
     }
-    move_towards_closest(group.spawn_tiles);
+    // While the group respawns, wait next to its spawn tiles: standing on one would hold the respawn.
+    // Otherwise walk onto them (camps of a live group may only be in reach from the spawn tiles of
+    // camps already killed; a waiting reward is captured there).
+    if (constants::kWaitBesideSpawn && respawn_ready(group) != 0 && !group.reward_waiting && !group.beside_tiles.is_empty())
+        move_towards_closest(group.beside_tiles);
+    else
+        move_towards_closest(group.spawn_tiles);
     return StateResult::Continue;
 }
 FarmState farm_state_instance;

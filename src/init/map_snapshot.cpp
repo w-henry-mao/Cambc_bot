@@ -13,6 +13,7 @@ bool stage_map_snapshot(MatchData& match_data) {
         cached.centre = cached.spawn_positions[cached.spawn_positions.size() / 2];
         cached.gold_value = group.gold_value();
         cached.gem_value = group.gem_value();
+        cached.max_respawn = static_cast<std::uint32_t>(std::max(0, group.max_respawn_timer()));
         for (const auto& camp : group) {
             const auto stats = camp.base_stats();
             cached.design_health += stats.base_health;
@@ -22,6 +23,16 @@ bool stage_map_snapshot(MatchData& match_data) {
     }
     match_data.static_blockers = cambc::map::walls() | cambc::map::holes()
         | cambc::map::altars() | cambc::map::spawn_region(cambc::team::enemy);
+    // Where farming champions wait for a group: next to its spawn tiles, never on any group's spawn
+    // tile (standing on one holds that group's respawn).
+    cambc::bitboard all_spawn_tiles;
+    all_spawn_tiles.clear();
+    for (const auto& group : match_data.camp_groups) all_spawn_tiles |= group.spawn_tiles;
+    for (auto& group : match_data.camp_groups) {
+        group.beside_tiles.clear();
+        for (const auto tile : group.spawn_positions) group.beside_tiles |= tiles_around(tile, 1);
+        group.beside_tiles &= ~all_spawn_tiles & ~match_data.static_blockers;
+    }
     // Altars never move, so the walk to the nearest one is computed once for the whole match.
     cambc::bitboard approach;
     approach.clear();

@@ -53,6 +53,20 @@ constexpr float kRecallBushBonus = RECALL_BUSH_BONUS;   // 3
 // kOpeningMaxRounds is a safety cap in case the group is never cleared.
 constexpr bool kOpeningClosestCamp = OPENING_CLOSEST_CAMP;
 constexpr std::uint32_t kOpeningMaxRounds = 200;
+// Single collector: everyone on a group's spawn tiles when the capture finishes splits its
+// reward, so only one champion stays to collect. It is the champion within kCollectorRadius of
+// the group with the fewest items (shard 1, emblem kEmblemShards), then the closest, then the
+// first in the roster. The others leave once it stands on a spawn tile and treat the group as
+// captured; if its reward is still waiting kCollectorGraceRounds after the capture should have
+// finished, the group is a normal target again.
+constexpr bool kSingleCollector = SINGLE_COLLECTOR;
+constexpr int kCollectorRadius = 3;
+constexpr int kEmblemShards = 5;
+constexpr std::uint32_t kCollectorGraceRounds = 3;
+// A champion on any spawn tile holds the whole group's respawn (its timer stays at 0). While a
+// group respawns, farming champions wait next to its spawn tiles instead of on them; otherwise
+// teammates stepping on and off in turn could hold the respawn for the rest of the game.
+constexpr bool kWaitBesideSpawn = WAIT_BESIDE_SPAWN;
 // Per-champion camp choice (to-do #4): each champion picks its own best camp group instead of
 // following a shared team target. Teammates within kHelpRadius of a group (seen, or from
 // position reports) speed the kill, share the damage, and add kCampTeammateBonus each to its
