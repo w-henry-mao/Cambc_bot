@@ -213,6 +213,16 @@ and 64, so `sweep_team_header()` clears expired entries at the start of every ch
 normal matches and in 24 test-caller matches with unlimited fuel; it also fixes a wrap-around
 bug in the old 8-bit round stamp that let a fight call come back exactly 256 rounds later.
 
+## Shop
+
+All gold goes on Bruiser health shards (`states/shop.h`). Eight plans were tested (544 matches:
+each vs the previous bot on both sides of every map, plus starter-cpp and opp-rush); wins out of
+68: Bruiser health 56, Bruiser strength 50, Bruiser focus (old default) 47, Home emblem first 47,
+Jungle first 47, Durability first 45, Monster first 44, Power focus 34. Confirmed on fresh
+opponents (opp-caller, locker, main, starter-python, both sides, 272 matches): health 109/136 vs
+focus 89/136, better against every opponent. `SHOP_PLAN` switches plans in test builds (8 = the
+old focus plan).
+
 ## Farming: Camp Danger and Monolith Maps
 
 Ranked play showed a 0 : 1080 loss on stampede. On stampede and contest the only gems are in

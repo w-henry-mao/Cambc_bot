@@ -107,3 +107,7 @@
 #ifndef MAX_CAMP_DAMAGE_SHARE_GEM_STARVED
 #define MAX_CAMP_DAMAGE_SHARE_GEM_STARVED 1000.0f
 #endif
+// Shop plan for test sweeps (states/shop.h); 0 = Bruiser health shards only.
+#ifndef SHOP_PLAN
+#define SHOP_PLAN 0
+#endif
