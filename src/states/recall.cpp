@@ -22,7 +22,8 @@ int RecallState::score(const TurnContext& ctx) {
     if (on_spawn()) return me.health() < me.max_health() ? constants::kRecallScore : 0;
     if (me.health() < me.max_health() * constants::kRecallHpFraction) return constants::kRecallScore;
     // Hurt with nothing to farm: go heal instead of standing around.
-    if (me.health() < me.max_health() && !farm_target(*ctx.match_data)) return constants::kRecallScore;
+    if (me.health() < me.max_health() * constants::kIdleRecallHpFraction && !farm_target(*ctx.match_data))
+        return constants::kRecallScore;
     return 0;
 }
 StateResult RecallState::execute(TurnContext& ctx, BotMemory& memory) {

@@ -14,8 +14,18 @@ bool move_towards_closest(cambc::bitboard goals) {
     cambc::distance_field field;
     cambc::bitboard visited;
     field.compute_to(path_walls, goals, tiles_around(me.position(), 0), visited);
-    auto step = me.position();
-    for (auto tile : blocked.reachable_tiles(step, me.base_stats().base_move_speed).positions())
-        if (field.get(tile) < field.get(step)) step = tile;
-    return step != me.position() && me.move_absolute(step);
+    // Steps on a shortest path often tie (diagonals cost the same). Taking the first in tile order
+    // drifts to low y, along the map edge; kStraightTieBreak prefers a straight step among ties.
+    const auto here = me.position();
+    auto step = here;
+    auto best = field.get(here);
+    bool step_diagonal = true;
+    for (auto tile : blocked.reachable_tiles(here, me.base_stats().base_move_speed).positions()) {
+        const auto d = field.get(tile);
+        const bool diagonal = tile.x != here.x && tile.y != here.y;
+        if (d < best || (constants::kStraightTieBreak && d == best && step != here && step_diagonal && !diagonal)) {
+            best = d; step = tile; step_diagonal = diagonal;
+        }
+    }
+    return step != here && me.move_absolute(step);
 }

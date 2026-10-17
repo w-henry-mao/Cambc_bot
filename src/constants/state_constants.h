@@ -4,6 +4,8 @@
 namespace constants {
 // Recall below this fraction of max health (only once nothing is hitting us).
 constexpr float kRecallHpFraction = 0.35f;
+// With nothing to farm, recall below this fraction of max health (1 = whenever hurt; 0 = never).
+constexpr float kIdleRecallHpFraction = IDLE_RECALL_HP;
 // Tribute when carrying this many gems, or any gems when an altar is this close.
 constexpr std::uint32_t kTributeGems = TRIBUTE_GEMS;   // 40 unless a test build overrides
 constexpr int kTributeIfAltarWithin = 8;

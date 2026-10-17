@@ -271,6 +271,18 @@ matches (same opponent versions and maps): games won 34/50 (v6 29, v5 27), gems 
 (v6 38,378, v5 36,476); first game won against Mite, and 25-35% more gems than v5 against each of
 Fish, Mite and The Mania (still 1/15 games against them).
 
+## Idle Recall and Pathing Tie-Break (tested, no change)
+
+- Idle recall (`IDLE_RECALL_HP`, `states/recall.cpp`): with nothing to farm, a hurt champion
+  recalls. Traces showed ~16 such recalls a game locally (at ~81% health), but only 0-1 a game
+  against top teams. Recalling only below 70% / 50% / never: 190 / 188 / 189 of 204 vs 190 for
+  the current rule; head-to-head 17, 15, 16 of 34. Left at 1.0 (whenever hurt).
+- Straight tie-break (`STRAIGHT_TIE_BREAK`, `nav/pathfinding.cpp`): equally short next steps
+  are taken in tile order, so walks drift to low y and follow the map edge. Same number of
+  steps either way; preferring straight steps: 189/204 vs 190, head-to-head 16/34. Left off.
+- `STATE_TRACE` logs each turn's state, position, gems, health, visible enemies, nearest enemy
+  and farm target (site replay bundles include our stdout).
+
 ## Farming: Camp Danger and Monolith Maps
 
 Ranked play showed a 0 : 1080 loss on stampede. On stampede and contest the only gems are in

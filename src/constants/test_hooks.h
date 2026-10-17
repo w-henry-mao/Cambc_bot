@@ -111,6 +111,14 @@
 #ifndef MAX_CAMP_DAMAGE_SHARE_GEM_STARVED
 #define MAX_CAMP_DAMAGE_SHARE_GEM_STARVED 1000.0f
 #endif
+// Pathing tie-break (constants/nav_constants.h kStraightTieBreak).
+#ifndef STRAIGHT_TIE_BREAK
+#define STRAIGHT_TIE_BREAK false
+#endif
+// Idle recall threshold (constants/state_constants.h kIdleRecallHpFraction).
+#ifndef IDLE_RECALL_HP
+#define IDLE_RECALL_HP 1.0f
+#endif
 // Farm tunables for test sweeps (constants/state_constants.h).
 #ifndef ROUND_DISCOUNT
 #define ROUND_DISCOUNT 0.93f
