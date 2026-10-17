@@ -102,8 +102,19 @@ void Bot::play_turn() {
         const auto& me = cambc::self();
         std::cout << "ST " << cambc::round_number() << ' ' << cambc::to_string(me.champion_name()) << ' '
                   << static_cast<int>(last_selected_state());
-        if (me.is_alive()) std::cout << ' ' << me.position().x << ' ' << me.position().y << ' ' << me.gem_count()
-                                     << ' ' << me.health() << ' ' << me.max_health();
+        if (me.is_alive()) {
+            // ... visible enemies, nearest enemy distance (-1: none), farm target group (-1: none).
+            int seen = 0, nearest = -1;
+            for (const auto& e : roster_enemies())
+                if (in_view(e)) {
+                    ++seen;
+                    const int d = static_cast<int>(e.position().chebyshev_distance(me.position()));
+                    if (nearest < 0 || d < nearest) nearest = d;
+                }
+            std::cout << ' ' << me.position().x << ' ' << me.position().y << ' ' << me.gem_count() << ' '
+                      << me.health() << ' ' << me.max_health() << ' ' << seen << ' ' << nearest << ' '
+                      << match_data_.farm_target.value_or(-1);
+        }
         std::cout << '\n';
     }
     debug::report_fuel();
