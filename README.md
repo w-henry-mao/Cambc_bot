@@ -275,6 +275,16 @@ a self-play probe). Out of sight it returns the last reading and how many rounds
 also gives the gem value of the camp group the enemy is fighting (a damaged camp within its
 reach), so `total()` is what it holds once it captures that group. Nothing calls it yet.
 
+## Our Altar Locks (off)
+
+`skills/altar_locks.h`, `kAltarLockPlan` (0 = off): 1 locks any unlocked altar within 2 tiles,
+2 locks an altar where a visible enemy is tributing (placing a lock cancels their channel), 3
+both; plans 1-3 buy one lock (10 gold) before shards when not carrying one. Tested on 408
+matches (each plan vs the current bot both sides, plus the previous bot, opp-rush, locker and
+main): wins out of 102 were 72 off, 69 plan 1, 71 plan 2, 69 plan 3; head-to-head vs the
+current bot 13/34 and 15/34. Locks cut the opponent's banked gems (vs main 402-542 vs 649) but
+the gold they cost buys fewer shards and the win rate did not improve, so they stay off.
+
 ## Enemy Altar Locks
 
 An enemy altar lock blocks our tributes at that altar until three basic attacks break it (our own

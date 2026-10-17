@@ -11,7 +11,7 @@ inline bool shop_pre_step() {
     if (!is_dead && !cambc::map::spawn_region(cambc::team::ally).is_set(me.position())
         && me.passive() != cambc::passive_type::remote_shop)
         return false;
-    if constexpr (TEST_ALTAR_LOCKER) {   // test opponent only: an altar lock before shards
+    if constexpr (TEST_ALTAR_LOCKER || ALTAR_LOCK_PLAN != 0) {   // an altar lock (carry one) before shards
         const auto lock = cambc::consumable_type::altar_lock;
         if (me.can_buy(lock)) me.buy(lock);
     }

@@ -10,6 +10,7 @@
 #include "comms/ally_positions.h"
 #include "comms/team_comms.h"
 #include "debug/test_altar_locker.h"
+#include "skills/altar_locks.h"
 #include "constants/test_hooks.h"
 #include "nav/safe_recall.h"
 #include "constants/combat_constants.h"
@@ -64,6 +65,7 @@ void Bot::play_turn() {
     update_world(match_data_);
     shop_pre_step();
     test_place_altar_lock();   // test opponent builds only
+    place_altar_lock();        // constants::kAltarLockPlan (0: never)
     if (duel_mode_turn()) return;   // test builds only
     static ChampionProfile placeholder_profile{.is_ranged = false, .skills = {}, .linked_pair = false};
     TurnContext ctx(placeholder_profile);

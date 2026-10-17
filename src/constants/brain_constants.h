@@ -15,5 +15,9 @@ constexpr int kDefaultSwitchMargin = 10;
 // position, stepping back if we are the closest. A teammate's fight call overrides this.
 constexpr bool kWaitForCampFights = WAIT_FOR_CAMP_FIGHTS;
 constexpr float kWaitCampHealthFraction = 0.3f;
+// Our altar locks (skills/altar_locks.h): plan 0 never, 1 any unlocked altar in reach, 2 where an
+// enemy is tributing, 3 both. Placement reach is 2 tiles (game rule).
+constexpr int kAltarLockPlan = ALTAR_LOCK_PLAN;
+constexpr int kAltarLockRange = 2;
 constexpr int kInitFuelReserve = 50000;
 }

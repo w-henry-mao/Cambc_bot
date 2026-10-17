@@ -111,3 +111,7 @@
 #ifndef SHOP_PLAN
 #define SHOP_PLAN 0
 #endif
+// Our altar lock plan (constants/brain_constants.h kAltarLockPlan).
+#ifndef ALTAR_LOCK_PLAN
+#define ALTAR_LOCK_PLAN 0
+#endif
