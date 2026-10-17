@@ -13,6 +13,7 @@
 #include "../combat/sdk_team_fight.h"
 #include "../nav/pathfinding.h"
 #include "../constants/brain_constants.h"
+#include "../constants/state_constants.h"
 #include "../constants/test_hooks.h"
 #include "../constants/combat_constants.h"
 #include <iostream>
@@ -114,6 +115,9 @@ Targets pick_targets(int radius, const MatchData* match) {
 // fight call is live (combat/sdk_team_fight.h, brain/team_fight_call.cpp), the called enemy comes
 // first whenever it is within reach, and with nobody in reach we walk to it.
 int AttackState::score(const TurnContext& ctx) {
+    // Carrying many gems: stay out of fights and bank them (tribute) instead.
+    if constexpr (constants::kCarrierAvoidGems > 0)
+        if (cambc::self().gem_count() >= static_cast<std::uint32_t>(constants::kCarrierAvoidGems)) return 0;
     const auto t = pick_targets(reach(), ctx.match_data);
     if (t.attack || t.waiting || t.chase) return constants::kAttackScore;
     if (team_fight_called()) return constants::kTeamFightCallScore;

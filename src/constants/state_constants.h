@@ -4,6 +4,12 @@
 namespace constants {
 // Recall below this fraction of max health (only once nothing is hitting us).
 constexpr float kRecallHpFraction = 0.35f;
+// Recall below this fraction instead when an enemy champion is in view within kRecallNearEnemyDist
+// (no effect at or below kRecallHpFraction).
+constexpr float kRecallHpNearEnemy = RECALL_HP_NEAR_ENEMY;
+constexpr int kRecallNearEnemyDist = 6;
+// Carrying at least this many gems, do not start or join fights (0 = off).
+constexpr int kCarrierAvoidGems = CARRIER_AVOID_GEMS;
 // With nothing to farm, recall below this fraction of max health (1 = whenever hurt; 0 = never).
 constexpr float kIdleRecallHpFraction = IDLE_RECALL_HP;
 // Tribute when carrying this many gems, or any gems when an altar is this close.

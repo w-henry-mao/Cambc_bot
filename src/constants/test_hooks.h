@@ -115,6 +115,13 @@
 #ifndef STRAIGHT_TIE_BREAK
 #define STRAIGHT_TIE_BREAK false
 #endif
+// Death tests (constants/state_constants.h): early recall near enemies, carriers avoid fights.
+#ifndef RECALL_HP_NEAR_ENEMY
+#define RECALL_HP_NEAR_ENEMY 0.35f
+#endif
+#ifndef CARRIER_AVOID_GEMS
+#define CARRIER_AVOID_GEMS 0
+#endif
 // Idle recall threshold (constants/state_constants.h kIdleRecallHpFraction).
 #ifndef IDLE_RECALL_HP
 #define IDLE_RECALL_HP 1.0f

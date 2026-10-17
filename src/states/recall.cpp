@@ -6,6 +6,7 @@
 #include "shop.h"
 #include "../core/context.h"
 #include "../core/match_data.h"
+#include "../core/roster.h"
 #include "../nav/pathfinding.h"
 #include "../nav/safe_recall.h"
 #include "../skills/dash_move.h"
@@ -21,6 +22,13 @@ int RecallState::score(const TurnContext& ctx) {
     auto& me = cambc::self();
     if (on_spawn()) return me.health() < me.max_health() ? constants::kRecallScore : 0;
     if (me.health() < me.max_health() * constants::kRecallHpFraction) return constants::kRecallScore;
+    // With an enemy champion close, recall earlier: the walk out of reach costs health.
+    if constexpr (constants::kRecallHpNearEnemy > constants::kRecallHpFraction) {
+        if (me.health() < me.max_health() * constants::kRecallHpNearEnemy)
+            for (const auto& e : roster_enemies())
+                if (in_view(e) && e.position().chebyshev_distance(me.position()) <= static_cast<std::uint32_t>(constants::kRecallNearEnemyDist))
+                    return constants::kRecallScore;
+    }
     // Hurt with nothing to farm: go heal instead of standing around.
     if (me.health() < me.max_health() * constants::kIdleRecallHpFraction && !farm_target(*ctx.match_data))
         return constants::kRecallScore;
