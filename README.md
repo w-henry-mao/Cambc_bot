@@ -232,6 +232,17 @@ bug in the old 8-bit round stamp that let a fight call come back exactly 256 rou
   raised banked gems by ~120-200 a game against starters and the rush opponent (e.g. 9/17 ->
   14/17 wins vs opp-rush), so it is now off by default.
 
+## Waiting on Camp Fights
+
+`kWaitForCampFights` (attack state): an enemy fighting a camp (an awake camp within its reach)
+is attacked only once that camp group is at or below `kWaitCampHealthFraction` (0.3) of its
+health or dead, or while we are not the champion closest to the camp (camps hit the closest;
+when closing in we only step to tiles farther from the camp than the enemy). Until then we hold,
+stepping back if we are the closest. A teammate's fight call overrides it. It triggers often
+(476 waiting decisions in 17 matches) but did not measurably change results: 136 matches,
+head-to-head ahead in 15/34, against 3 opponents ahead in 31/51 vs 34/51 without it (within
+noise). With it switched off, play is identical to before (replays checked).
+
 ## Enemy Gems
 
 `enemy_gems(enemy, match)` (`core/enemy_gems.h`): an enemy's carried gems are exact while it is

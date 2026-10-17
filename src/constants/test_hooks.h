@@ -96,3 +96,7 @@
 #ifndef MAX_CAMP_SHARE_NEAR_SPAWN
 #define MAX_CAMP_SHARE_NEAR_SPAWN 0.6f
 #endif
+// Wait while enemies fight camps (false: attack them at once, the old behaviour, for A/B tests).
+#ifndef WAIT_FOR_CAMP_FIGHTS
+#define WAIT_FOR_CAMP_FIGHTS true
+#endif
