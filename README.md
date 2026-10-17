@@ -232,6 +232,9 @@ earlier run of all plans with the combat trace on (238 matches each) agreed: 13 
 9 (13 with Willow on strength) 138, 11 (no Bruiser emblem) 138, 12 (Durability emblem then health)
 133, health 130. With plan 10, per-champion camps (139) and higher gold weight in camp choice
 (0.5: 145, 1.0: 145) were worse.
+On the site (live as v6), rematches of v5's last ten unranked matches (same opponent versions
+and maps): games won 29/50 vs 27/50 for v5, gems banked 38,378 vs 36,418; still 0/5 against each
+of the top three (Fish, Mite, The Mania), whose main lead is farming speed.
 
 Before that, eight plans were tested (544 matches: each vs the previous bot on both sides of
 every map, plus starter-cpp and opp-rush); wins out of 68: Bruiser health 56, Bruiser strength
