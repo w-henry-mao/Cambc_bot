@@ -219,13 +219,25 @@ bug in the old 8-bit round stamp that let a fight call come back exactly 256 rou
 
 ## Shop
 
-All gold goes on Bruiser health shards (`states/shop.h`). Eight plans were tested (544 matches:
-each vs the previous bot on both sides of every map, plus starter-cpp and opp-rush); wins out of
-68: Bruiser health 56, Bruiser strength 50, Bruiser focus (old default) 47, Home emblem first 47,
-Jungle first 47, Durability first 45, Monster first 44, Power focus 34. Confirmed on fresh
-opponents (opp-caller, locker, main, starter-python, both sides, 272 matches): health 109/136 vs
-focus 89/136, better against every opponent. `SHOP_PLAN` switches plans in test builds (8 = the
-old focus plan).
+Default (`SHOP_PLAN` 13, `states/shop.h`): one emblem each of Power (main stat), Durability health
+and Bruiser health, then Power shards of the main stat for the rest of the game. Main stat is focus
+for Cassi, Stellar, Prism, Ren and Willow, strength for the others. This follows the two top
+teams: summary data from 0-5 losses to each showed them buying Power shards of the main stat plus
+a few emblems, clearing 2-3x as many camps and dealing 2-3x our monster damage.
+
+Tested against the previous default, Bruiser health shards (plan 0), on all 17 maps, both sides,
+vs v5, locker, main, opp-caller, opp-rush and starter-cpp (204 matches each), wins:
+plan 13 157, Mite's order (10: Jungle, Power, Durability, Bruiser) 151, health only 149. An
+earlier run of all plans with the combat trace on (238 matches each) agreed: 13 140, 10 142,
+9 (13 with Willow on strength) 138, 11 (no Bruiser emblem) 138, 12 (Durability emblem then health)
+133, health 130. With plan 10, per-champion camps (139) and higher gold weight in camp choice
+(0.5: 145, 1.0: 145) were worse.
+
+Before that, eight plans were tested (544 matches: each vs the previous bot on both sides of
+every map, plus starter-cpp and opp-rush); wins out of 68: Bruiser health 56, Bruiser strength
+50, Bruiser focus 47, Home emblem first 47, Jungle first 47, Durability first 45, Monster first
+44, Power focus 34 (focus for every champion). `SHOP_PLAN` switches plans in test builds (0 =
+health only, 8 = Bruiser focus).
 
 ## Farming: Camp Danger and Monolith Maps
 

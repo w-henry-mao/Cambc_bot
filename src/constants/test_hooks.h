@@ -62,6 +62,10 @@
 #ifndef RECALL_TRACE
 #define RECALL_TRACE false
 #endif
+// Per-turn state log (bot.cpp): round, champion, chosen state, position, gems, health.
+#ifndef STATE_TRACE
+#define STATE_TRACE false
+#endif
 // Safe-recall tunables for test sweeps.
 #ifndef RECALL_ENEMY_BUFFER
 #define RECALL_ENEMY_BUFFER 2
@@ -107,9 +111,19 @@
 #ifndef MAX_CAMP_DAMAGE_SHARE_GEM_STARVED
 #define MAX_CAMP_DAMAGE_SHARE_GEM_STARVED 1000.0f
 #endif
-// Shop plan for test sweeps (states/shop.h); 0 = Bruiser health shards only.
+// Farm tunables for test sweeps (constants/state_constants.h).
+#ifndef ROUND_DISCOUNT
+#define ROUND_DISCOUNT 0.97f
+#endif
+#ifndef GOLD_WEIGHT
+#define GOLD_WEIGHT 0.25f
+#endif
+#ifndef TRIBUTE_GEMS
+#define TRIBUTE_GEMS 40
+#endif
+// Shop plan (states/shop.h); 13 = emblems then Power shards of the main stat, 0 = Bruiser health only.
 #ifndef SHOP_PLAN
-#define SHOP_PLAN 0
+#define SHOP_PLAN 13
 #endif
 // Our altar lock plan (constants/brain_constants.h kAltarLockPlan).
 #ifndef ALTAR_LOCK_PLAN

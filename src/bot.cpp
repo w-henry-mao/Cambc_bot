@@ -98,5 +98,13 @@ void Bot::play_turn() {
     decide_team_fight_call();
     combat_trace_turn_start();
     selector.select_and_execute(ctx, memory_);
+    if constexpr (STATE_TRACE) {
+        const auto& me = cambc::self();
+        std::cout << "ST " << cambc::round_number() << ' ' << cambc::to_string(me.champion_name()) << ' '
+                  << static_cast<int>(last_selected_state());
+        if (me.is_alive()) std::cout << ' ' << me.position().x << ' ' << me.position().y << ' ' << me.gem_count()
+                                     << ' ' << me.health() << ' ' << me.max_health();
+        std::cout << '\n';
+    }
     debug::report_fuel();
 }

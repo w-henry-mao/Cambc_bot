@@ -5,11 +5,11 @@ namespace constants {
 // Recall below this fraction of max health (only once nothing is hitting us).
 constexpr float kRecallHpFraction = 0.35f;
 // Tribute when carrying this many gems, or any gems when an altar is this close.
-constexpr std::uint32_t kTributeGems = 40;
+constexpr std::uint32_t kTributeGems = TRIBUTE_GEMS;   // 40 unless a test build overrides
 constexpr int kTributeIfAltarWithin = 8;
 // Camp value: (gems + gold x kGoldWeight) x kRoundDiscount ^ (walk + kill + capture rounds).
-constexpr float kRoundDiscount = 0.97f;
-constexpr float kGoldWeight = 0.25f;
+constexpr float kRoundDiscount = ROUND_DISCOUNT;   // 0.97 unless a test build overrides
+constexpr float kGoldWeight = GOLD_WEIGHT;         // 0.25 unless a test build overrides
 // Only camps within this walk are considered (the search stops there).
 constexpr int kCampSearchRange = 60;
 // Switch farm target only for a camp worth this much more than the current one.
