@@ -252,6 +252,9 @@ opp-rush, starter-cpp), wins: this draft 177; same with Varg fifth (the top team
 with Tavi for Willow 172, with Ren for Willow 164, with Prism for Willow 160, with Ren for Ryth
 141; old draft (Varg, Cassi & Issac, Willow, Stellar, Ryth) 157. Tribute at 60 or 80 gems
 instead of 40 made no difference (172, 174). `DRAFT_PICKS` sets the whole draft in test builds.
+On the site (live as v7), rematches of six of v5's unranked matches (same opponent versions and
+maps): games won 13/30 vs 11/30 for v6 and 9/30 for v5; gems banked 19,580 vs 20,191 (v6);
+still 0/15 against Fish, Mite and The Mania.
 
 ## Farming: Camp Danger and Monolith Maps
 
