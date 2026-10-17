@@ -242,6 +242,17 @@ every map, plus starter-cpp and opp-rush); wins out of 68: Bruiser health 56, Br
 44, Power focus 34 (focus for every champion). `SHOP_PLAN` switches plans in test builds (0 =
 health only, 8 = Bruiser focus).
 
+## Draft
+
+Ren, Stellar, Cassi & Issac, Ryth, Tavi (`constants/draft_constants.h`). The first four are what
+the top two teams draft; on four-champion maps only they are picked, so order matters. Tested
+with the plan 13 shop, 204 matches each (17 maps, both sides, vs v5, locker, main, opp-caller,
+opp-rush, starter-cpp), wins: this draft 177; same with Varg fifth (the top teams' exact draft)
+174; Tavi first 173; Stellar first 172; Ren, Tavi, Cassi & Issac, Stellar, Ryth 171; old draft
+with Tavi for Willow 172, with Ren for Willow 164, with Prism for Willow 160, with Ren for Ryth
+141; old draft (Varg, Cassi & Issac, Willow, Stellar, Ryth) 157. Tribute at 60 or 80 gems
+instead of 40 made no difference (172, 174). `DRAFT_PICKS` sets the whole draft in test builds.
+
 ## Farming: Camp Danger and Monolith Maps
 
 Ranked play showed a 0 : 1080 loss on stampede. On stampede and contest the only gems are in
