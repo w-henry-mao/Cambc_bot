@@ -32,7 +32,7 @@ int TributeState::score(const TurnContext& ctx) {
 StateResult TributeState::execute(TurnContext& ctx, BotMemory& memory) {
     auto& me = cambc::self();
     for (auto altar : cambc::map::altars().positions()) {
-        if (distance(me.position(), altar) <= cambc::constants::submit_gems_range && !cambc::vision::has_altar_lock(altar)) {
+        if (distance(me.position(), altar) <= cambc::constants::submit_gems_range) {
             me.submit_gems(altar);
             return StateResult::Done;
         }
@@ -55,7 +55,7 @@ StateResult TributeState::execute(TurnContext& ctx, BotMemory& memory) {
     cambc::bitboard approach;
     approach.clear();
     for (const auto altar : cambc::map::altars().positions())
-        if (!cambc::vision::has_altar_lock(altar)) approach |= tiles_around(altar, cambc::constants::submit_gems_range);
+        approach |= tiles_around(altar, cambc::constants::submit_gems_range);
     move_towards_closest(approach);
     return StateResult::Continue;
 }
