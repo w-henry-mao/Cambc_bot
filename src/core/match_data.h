@@ -1,6 +1,7 @@
 #pragma once
 #include <cambc.h>
 #include <optional>
+#include <cstdint>
 #include <vector>
 // What we know about a camp group. Static parts are filled once by the map snapshot; the rest
 // is updated while the group is in sight.
@@ -21,6 +22,12 @@ struct MatchData {
     std::vector<CachedCampGroup> camp_groups;
     cambc::bitboard static_blockers;               // walls, holes, altars, enemy spawn
     cambc::distance_field altar_distance;          // walking distance to the nearest altar's tribute range
+    // Walking distance to our spawn region and bush tiles as plain row-major arrays (index
+    // y * map_width + x): reading them costs no host calls, unlike distance_field::get/is_set.
+    std::vector<std::uint16_t> home_walk;
+    std::vector<std::uint8_t> bush_tiles;
+    int map_width = 0;
+    cambc::bitboard sample_grid;                   // tiles with even x and y (safe recall scores these)
     bool initialized = false;
     float last_health = -1;                        // our health at the end of our previous turn
     bool hit_since_last_turn = false;

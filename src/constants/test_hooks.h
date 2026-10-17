@@ -55,3 +55,17 @@
 #ifndef ALLY_POSITION_MAX_AGE
 #define ALLY_POSITION_MAX_AGE 3
 #endif
+// Safe recall on (true) or the old walk-home recall (false), for A/B tests; and its logging.
+#ifndef SAFE_RECALL
+#define SAFE_RECALL true
+#endif
+#ifndef RECALL_TRACE
+#define RECALL_TRACE false
+#endif
+// Safe-recall tunables for test sweeps.
+#ifndef RECALL_ENEMY_BUFFER
+#define RECALL_ENEMY_BUFFER 2
+#endif
+#ifndef RECALL_BUSH_BONUS
+#define RECALL_BUSH_BONUS 3.0f
+#endif

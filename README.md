@@ -39,6 +39,8 @@ src/
 │
 ├── nav/
 │   ├── blocked_tiles.h/.cpp      Compute blocked tiles
+│   ├── safe_recall.h/.cpp       Where to recall from: out of reach of visible enemies and awake camps
+│   ├── safe_spot_score.h        Tiebreak score between safe tiles (no SDK; host-tested)
 │   ├── pathfinding.h/.cpp       Distance field pathing
 │   └── movement.h/.cpp          Movement utilities
 │
@@ -200,6 +202,39 @@ Init stages run before baseline states, so states must not depend on `MatchData`
 2. Create `skills/my_skill.cpp` defining `can_use()`, `use()` and the instance
 3. Include the header in `skills/skill_instances.h`
 4. Add instance to champion profiles in `champions/*.cpp`
+
+## Safe Recall
+
+Damage cancels a recall, so the recall state (`states/recall.cpp`) first gets out of reach of
+everything it can see (`nav/safe_recall.h`):
+- Danger: tiles within reach of a visible enemy champion (its longest attack/damage/stun range,
+  from the design table, plus `kRecallEnemyBuffer` = 2) or of an awake camp (range 3 plus
+  `kRecallCampBuffer` = 0). A camp counts as awake when it or a camp within 3 tiles is damaged.
+- Safe where we stand and not hit since last turn: recall. Otherwise walk to the best safe tile
+  within `kRecallSearchSteps` (8) steps and recall on arrival (moving and recalling in one turn
+  works). Hit by something we cannot see, or no safe tile in range: walk home as before.
+- Best safe tile: highest weighted score (`kRecallWeight*`, `constants/state_constants.h`): fewer
+  steps, shorter walk home, closer to the nearest visible teammate, farther from the other
+  visible enemies (all but the closest), plus `kRecallBushBonus` for a bush (hidden from
+  champions outside it; camps see through bushes). Only tiles within `kRecallExtraSteps` (2) of
+  the nearest safe tile are scored, plain tiles on a 2x2 grid plus every bush tile.
+- Fuel: median 15.8k per retreat turn, 99% under 31k, worst seen 52k (13,377 searches).
+- `kSafeRecall` = false restores the old behaviour.
+
+Tested on 204 matches (6 opponents x 17 maps), the same bot with and without it, then a sweep of
+the constants (306 more):
+
+| build | retreats | reached home | died on the way | recalls cancelled per retreat |
+| --- | --- | --- | --- | --- |
+| old recall | 3111 | 67.0% | 32.8% | 0.46 |
+| safe recall (buffer 2, bush bonus 3) | 3223 | 73.9% | 26.0% | 0.03 |
+| buffer 1 | 3340 | 73.0% | 26.8% | 0.05 |
+| buffer 3 | 3228 | 74.4% | 25.3% | 0.03 |
+| no bush bonus | 3287 | 72.9% | 27.0% | 0.03 |
+
+Against the most aggressive opponents (opp-rush, opp-caller) deaths on the way home fell from
+46-47% to 35%. Logging: `RECALL_TRACE=true` test builds, `python3 tools/recall_report.py <dir>`;
+sweep switches `SAFE_RECALL`, `RECALL_ENEMY_BUFFER`, `RECALL_BUSH_BONUS`.
 
 ## Fight Calculator
 

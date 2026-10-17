@@ -31,5 +31,8 @@ int reset_slot(const PolicyView& v);
 // How far our bot engages from: the longest of attack range and damage/area/stun spell
 // ranges (states/attack.cpp only fights enemies this close, otherwise it keeps farming).
 int reach(const ChampionDesign& d);
+// How far `d` can hit from where it stands: the longest of attack range and damage/area/stun
+// spell ranges (reach() without the test-build bonus).
+int threat_reach(const ChampionDesign& d);
 // Basic attack possible now: allowance available and target within attack range.
 bool can_hit(const PolicyView& v);

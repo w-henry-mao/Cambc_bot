@@ -6,6 +6,7 @@
 #include "brain/state_selector.h"
 #include "brain/team_fight_call.h"
 #include "comms/ally_positions.h"
+#include "nav/safe_recall.h"
 #include "constants/combat_constants.h"
 #include "combat/sdk_trace.h"
 #include "combat/sdk_duel_mode.h"
@@ -32,6 +33,7 @@ bool Bot::turn_guard() {
 void Bot::post_turn() {
     combat_trace_turn();
     team_fight_trace_turn();   // test builds only
+    recall_trace_turn();       // test builds only
     duel_mode_end_of_turn();   // test builds only
 }
 void Bot::play_turn() {

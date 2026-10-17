@@ -29,5 +29,16 @@ bool stage_map_snapshot(MatchData& match_data) {
     approach &= ~match_data.static_blockers;
     cambc::bitboard visited;
     match_data.altar_distance.compute(match_data.static_blockers, approach, visited);
+    // Likewise the walk home (safe recall prefers tiles closer to spawn), and the bush map, both as
+    // plain arrays for cheap lookups.
+    cambc::distance_field home;
+    home.compute(match_data.static_blockers, cambc::map::spawn_region(cambc::team::ally), visited);
+    match_data.home_walk = home.export_linear_buffer();
+    match_data.bush_tiles = cambc::map::bushes().export_linear_buffer();
+    match_data.map_width = cambc::map::width();
+    std::vector<std::uint8_t> grid(static_cast<std::size_t>(cambc::map::width()) * static_cast<std::size_t>(cambc::map::height()), 0);
+    for (int y = 0; y < cambc::map::height(); y += 2)
+        for (int x = 0; x < cambc::map::width(); x += 2) grid[static_cast<std::size_t>(y) * static_cast<std::size_t>(cambc::map::width()) + static_cast<std::size_t>(x)] = 1;
+    match_data.sample_grid.import_linear_buffer(grid);
     return true;
 }

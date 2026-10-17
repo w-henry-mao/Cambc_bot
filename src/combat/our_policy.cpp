@@ -34,3 +34,9 @@ int reach(const ChampionDesign& d) {
         if (is_offensive(a)) r = std::max(r, static_cast<int>(a.range) + REACH_BONUS);
     return r;
 }
+int threat_reach(const ChampionDesign& d) {
+    int r = d.attack_range;
+    for (const auto& a : d.slots)
+        if (is_offensive(a) && a.targets_enemies) r = std::max(r, static_cast<int>(a.range));
+    return r;
+}
