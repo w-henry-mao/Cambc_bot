@@ -19,5 +19,8 @@ constexpr float kWaitCampHealthFraction = 0.3f;
 // enemy is tributing, 3 both. Placement reach is 2 tiles (game rule).
 constexpr int kAltarLockPlan = ALTAR_LOCK_PLAN;
 constexpr int kAltarLockRange = 2;
+// Dash (skills/dash_move.h): plan 0 never, 1 to close in on the attack target, 2 toward the safe
+// tile when retreating to recall, 3 both.
+constexpr int kDashPlan = DASH_PLAN;   // 2: escape only (tested best; README)
 constexpr int kInitFuelReserve = 50000;
 }

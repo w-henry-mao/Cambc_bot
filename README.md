@@ -275,6 +275,15 @@ a self-play probe). Out of sight it returns the last reading and how many rounds
 also gives the gem value of the camp group the enemy is fighting (a damaged camp within its
 reach), so `total()` is what it holds once it captures that group. Nothing calls it yet.
 
+## Dash
+
+`skills/dash_move.h`: `dash_towards(goals)` dashes to the legal landing tile closest to the goal
+when that beats one ordinary step. `kDashPlan`: 0 never, 1 close in on the attack target, 2 toward
+the safe tile when retreating to recall (default), 3 both. With our draft only Issac can dash and
+no plan changed results (47-48/68). With a dash draft (Vendetta, Vesper, Ren, Varg,
+Cassi+Issac), 544 + 408 matches: escape 123/204 wins, close-in 115/203, none 112/204, both 37/68
+in the first batch. Escape is on; close-in did not hold up on fresh opponents.
+
 ## Our Altar Locks (off)
 
 `skills/altar_locks.h`, `kAltarLockPlan` (0 = off): 1 locks any unlocked altar within 2 tiles,

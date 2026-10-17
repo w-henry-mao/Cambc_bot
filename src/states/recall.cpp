@@ -8,6 +8,7 @@
 #include "../core/match_data.h"
 #include "../nav/pathfinding.h"
 #include "../nav/safe_recall.h"
+#include "../skills/dash_move.h"
 #include "../core/geometry.h"
 #include "../constants/brain_constants.h"
 #include "../constants/state_constants.h"
@@ -46,7 +47,8 @@ StateResult RecallState::execute(TurnContext& ctx, BotMemory& memory) {
             return StateResult::Done;
         }
         if (!plan.safe_here && plan.spot && me.can_move()) {
-            move_towards_closest(tiles_around(*plan.spot, 0));
+            if constexpr ((constants::kDashPlan & 2) != 0) dash_towards(tiles_around(*plan.spot, 0));
+            if (me.position() != *plan.spot) move_towards_closest(tiles_around(*plan.spot, 0));
             if (!hit && !plan.danger.is_set(me.position())) {
                 try {
                     me.recall();

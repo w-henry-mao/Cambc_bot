@@ -115,3 +115,7 @@
 #ifndef ALTAR_LOCK_PLAN
 #define ALTAR_LOCK_PLAN 0
 #endif
+// Dash plan (constants/brain_constants.h kDashPlan).
+#ifndef DASH_PLAN
+#define DASH_PLAN 2
+#endif

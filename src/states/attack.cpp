@@ -9,6 +9,7 @@
 #include <optional>
 #include <vector>
 #include "../skills/casting.h"
+#include "../skills/dash_move.h"
 #include "../combat/sdk_team_fight.h"
 #include "../nav/pathfinding.h"
 #include "../constants/brain_constants.h"
@@ -145,7 +146,8 @@ StateResult AttackState::execute(TurnContext& ctx, BotMemory& memory) {
         // Attacking an enemy busy with a camp: stay farther from the camp than the enemy, so the
         // camp keeps hitting it rather than us.
         if (targets.attack_camp.fighting) goals &= ~tiles_around(targets.attack_camp.camp, targets.attack_camp.enemy_dist);
-        move_towards_closest(goals);
+        if constexpr ((constants::kDashPlan & 1) != 0) dash_towards(goals);
+        if (!goals.is_set(me.position())) move_towards_closest(goals);
         if (target->is_visible() && target->health() > 0) attack_with_reset(*target);
     }
     return StateResult::Continue;
