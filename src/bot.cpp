@@ -17,6 +17,7 @@
 #include "combat/sdk_trace.h"
 #include "combat/sdk_duel_mode.h"
 #include "combat/sdk_team_fight.h"
+#include "brain/channel_safety.h"
 #include "states/shop.h"
 #include "states/recall.h"
 #include "states/attack.h"
@@ -32,7 +33,17 @@ bool Bot::turn_guard() {
         match_data_.last_health = -1;
         return false;
     }
-    if (me.is_recalling() || me.is_submitting_gems() || me.is_teleporting()) return false;
+    if (me.is_teleporting()) return false;   // cannot be cancelled
+    if (me.is_recalling() || me.is_submitting_gems()) {
+        if (channel_still_safe(match_data_)) return false;
+        // One cancel per turn; once cancelled the champion acts normally this turn.
+        try {
+            if (me.is_recalling()) me.cancel_recall();
+            else me.cancel_submit_gems();
+        } catch (const std::exception&) {
+            return false;
+        }
+    }
     if (!me.can_move() && !me.can_attack()) return false;
     return true;
 }

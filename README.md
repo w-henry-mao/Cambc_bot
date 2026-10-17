@@ -46,7 +46,8 @@ src/
 │
 ├── brain/
 │   ├── state.h                  State enum (Recall, Attack, Tribute, Farm)
-│   └── state_selector.h/.cpp    Commitment + switch guard (hysteresis)
+│   ├── state_selector.h/.cpp    Commitment + switch guard (hysteresis)
+│   └── channel_safety.h/.cpp    Whether a recall/tribute in progress should continue
 │
 ├── states/
 │   ├── state_module.h           State interface (score, execute, on_enter, on_exit)
@@ -91,7 +92,10 @@ src/
 
 1. **TURN GUARD** (in `bot.cpp`):
    - Dead champions: shop only, reset state, return
-   - Alive but recalling/submitting/teleporting: return
+   - Teleporting: return (cannot be cancelled)
+   - Recalling or tributing: ask `channel_still_safe()` (in `brain/channel_safety.cpp`).
+     Safe: return and keep channelling. Not safe: cancel it and continue the turn normally.
+     Not finished: the rule waits on the fight calculator (task 8); until then it always returns safe.
    - Cannot act (no move or attack): return
 
 2. **Shop pre-step** (in `states/shop.h`):
