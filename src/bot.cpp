@@ -97,6 +97,7 @@ void Bot::play_turn() {
     selector.add_state(&farm_state_instance, State::Farm);
     decide_team_fight_call();
     combat_trace_turn_start();
+    if constexpr (constants::kAltarMemory) note_altar_locks(match_data_);
     selector.select_and_execute(ctx, memory_);
     if constexpr (STATE_TRACE) {
         const auto& me = cambc::self();

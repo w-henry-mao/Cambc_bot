@@ -129,6 +129,18 @@
 #ifndef AVOID_OUTNUMBERED
 #define AVOID_OUTNUMBERED false
 #endif
+// Camp danger tests (states/farm.cpp): danger limit for camps picked alone, and counting
+// teammates actually near a camp as help in that choice.
+#ifndef SOLO_DAMAGE_SHARE
+#define SOLO_DAMAGE_SHARE MAX_CAMP_DAMAGE_SHARE
+#endif
+#ifndef REAL_BACKUP
+#define REAL_BACKUP false
+#endif
+// Remember enemy altar locks and bank at unlocked altars (states/tribute.cpp).
+#ifndef ALTAR_MEMORY
+#define ALTAR_MEMORY false
+#endif
 // Idle recall threshold (constants/state_constants.h kIdleRecallHpFraction).
 #ifndef IDLE_RECALL_HP
 #define IDLE_RECALL_HP 1.0f

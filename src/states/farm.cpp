@@ -70,7 +70,8 @@ bool gem_starved(const MatchData& match, const Team& team, float my_health) {
 }
 
 Pick best_camp(const MatchData& match, const cambc::distance_field& field, const Team& team, std::optional<int> current,
-               bool starved, std::optional<int> exclude = std::nullopt) {
+               bool starved, std::optional<int> exclude = std::nullopt, float normal_share = constants::kMaxCampDamageShare,
+               const cambc::vec2* mates = nullptr, int n_mates = 0) {
     const float health = cambc::self().health();
     const bool gem_group_ok = !starved;
     Pick best, kept;
@@ -79,8 +80,17 @@ Pick best_camp(const MatchData& match, const cambc::distance_field& field, const
         const auto& group = match.camp_groups[static_cast<std::size_t>(i)];
         const int walk = field.get(group.centre);
         if (walk == kUnreached) continue;
-        const float share = !gem_group_ok && group.gem_value > 0 ? constants::kMaxCampDamageShareGemStarved : constants::kMaxCampDamageShare;
-        const auto value = camp_value(group, walk, team, health, share);
+        const float share = !gem_group_ok && group.gem_value > 0 ? constants::kMaxCampDamageShareGemStarved : normal_share;
+        std::optional<float> value;
+        if (mates) {
+            // Teammates near the camp help: more damage, damage taken shared.
+            int helpers = 0;
+            for (int k = 0; k < n_mates; ++k) helpers += static_cast<int>(mates[k].chebyshev_distance(group.centre)) <= constants::kHelpRadius;
+            const Team with_help{team.dps * static_cast<float>(team.count + helpers) / static_cast<float>(team.count), team.count + helpers};
+            value = camp_value(group, walk, with_help, health, share);
+        } else {
+            value = camp_value(group, walk, team, health, share);
+        }
         if (!value) continue;
         if (current == i) kept = {i, *value};
         if (!best.group || *value > best.value) best = {i, *value};
@@ -138,6 +148,22 @@ bool i_lead_group(int g) {
     for (int i = 0; i < static_cast<int>(allies.size()); ++i)
         if (allies[static_cast<std::size_t>(i)].is_alive() && group_of_index(i) == g) return allies[static_cast<std::size_t>(i)] == cambc::self();
     return false;
+}
+
+// Teammates' positions: exact while visible, else their last position report (at most 8).
+int collect_mates(cambc::vec2 (&mates)[8]) {
+    auto& me = cambc::self();
+    int n = 0;
+    const auto& allies = roster_allies();
+    const auto round = cambc::round_number();
+    for (int i = 0; i < static_cast<int>(allies.size()) && n < 8; ++i) {
+        const auto& a = allies[static_cast<std::size_t>(i)];
+        if (a == me || !a.is_alive()) continue;
+        if (in_view(a)) { mates[n++] = a.position(); continue; }
+        const auto& report = ally_position(i);
+        if (report.known && round - report.heard_round <= 2u * static_cast<std::uint32_t>(constants::kAllyPositionMaxAge)) mates[n++] = report.pos;
+    }
+    return n;
 }
 
 // Per-champion choice (constants::kPerChampionCamps): our own best group, counting teammates
@@ -254,7 +280,10 @@ std::optional<int> farm_target(MatchData& match) {
         match.farm_target = own_best_camp(match, field, dps, match.farm_target);
         return match.farm_target;
     }
-    const auto solo = best_camp(match, field, Team{dps, 1}, match.farm_target, starved);
+    cambc::vec2 mates[8];
+    const int n_mates = constants::kRealBackup ? collect_mates(mates) : 0;
+    const auto solo = best_camp(match, field, Team{dps, 1}, match.farm_target, starved, std::nullopt, constants::kSoloDamageShare,
+                                constants::kRealBackup ? mates : nullptr, n_mates);
     float team_value = 0;
     if (team_target) {
         const auto& group = match.camp_groups[static_cast<std::size_t>(*team_target)];

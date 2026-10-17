@@ -292,6 +292,22 @@ None is better. Early recall changes single top-team games a lot in both directi
 The Mania became a 1039:501 win; pilgrimage vs Mite, our only win, became a loss) but not on
 average. On elkring alone (12 matches) splitting banked 1006 vs 993 with the same wins.
 
+## Camp Danger and Altar-Lock Memory (tested, all off)
+
+Weighting: head-to-head vs the live bot and top-ladder site rematches count most; regular local
+opponents (v5, locker, main, opp-caller, opp-rush, starter-cpp; 204 paired matches) count less.
+
+| Switch | Head-to-head vs v8 | Regular bots: wins, margin/game vs v8 |
+|---|---|---|
+| `SOLO_DAMAGE_SHARE` 1.0 (camps taken alone) | 17/34 | 192 vs 190, -5 (p=0.69) |
+| `SOLO_DAMAGE_SHARE` 1.5 | 16/34 | 191 vs 190, -3 (p=0.81) |
+| `REAL_BACKUP` (solo choice counts teammates near the camp) | 18/34 | 194 vs 190, +35 (p=0.08) |
+| `REAL_BACKUP` + solo 1.5 | 19/34 | 189 vs 190, +22 (p=0.30) |
+| `ALTAR_MEMORY` (bank at altars not seen locked) | 17/34 | 186 vs 190, -27 (p=0.13); vs locker 27/34 (v8 33/34) |
+
+`REAL_BACKUP` is the only candidate; it has not been run against the top ladder yet. Walking to a
+farther unlocked altar costs more than breaking a lock (a few hits), so `ALTAR_MEMORY` stays off.
+
 ## Idle Recall and Pathing Tie-Break (tested, no change)
 
 - Idle recall (`IDLE_RECALL_HP`, `states/recall.cpp`): with nothing to farm, a hurt champion

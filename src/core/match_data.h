@@ -32,4 +32,8 @@ struct MatchData {
     float last_health = -1;                        // our health at the end of our previous turn
     bool hit_since_last_turn = false;
     std::optional<int> farm_target;                // camp group we are working on
+    // Altar-lock memory (constants::kAltarMemory): altar positions and the round we last saw an
+    // enemy lock on each (0: none known).
+    std::vector<cambc::vec2> altars;
+    std::vector<std::uint32_t> altar_locked_round;
 };

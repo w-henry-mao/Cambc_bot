@@ -10,6 +10,12 @@ constexpr float kRecallHpNearEnemy = RECALL_HP_NEAR_ENEMY;
 constexpr int kRecallNearEnemyDist = 6;
 // Carrying at least this many gems, do not start or join fights (0 = off).
 constexpr int kCarrierAvoidGems = CARRIER_AVOID_GEMS;
+// Remember enemy altar locks we have seen; bank at an altar not known to be locked when there is
+// one, and break locks only when every altar is known locked. A sighting is forgotten after
+// kAltarLockMemoryRounds or when we see the altar without a lock (within kAltarClearDistance).
+constexpr bool kAltarMemory = ALTAR_MEMORY;
+constexpr std::uint32_t kAltarLockMemoryRounds = 200;
+constexpr int kAltarClearDistance = 5;
 // Farm in two groups (Ren, Cassi & Issac / the rest) while each has two or more alive; the second
 // group's target is in shared memory bytes 6-7 (comms/team_comms.h).
 constexpr bool kSplitGroups = SPLIT_GROUPS;
@@ -31,6 +37,10 @@ constexpr float kSwitchFactor = 1.25f;
 // Skip a camp if the damage it would deal while we kill it, shared among us and the allies near
 // us, exceeds this fraction of our health.
 constexpr float kMaxCampDamageShare = MAX_CAMP_DAMAGE_SHARE;   // test builds may override
+// The same limit for a camp we would take alone (solo choice in farm_target).
+constexpr float kSoloDamageShare = SOLO_DAMAGE_SHARE;
+// Solo choice: teammates within kHelpRadius of a camp (seen or reported) share its damage and speed.
+constexpr bool kRealBackup = REAL_BACKUP;
 // When no gem group on the map passes kMaxCampDamageShare for a single champion (stampede, contest:
 // the only gems are in monoliths), gem groups use this limit instead, so the team keeps at them
 // through recall cycles (monoliths keep their damage while we heal).

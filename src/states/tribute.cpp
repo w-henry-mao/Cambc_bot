@@ -20,6 +20,39 @@ std::uint32_t team_gems_carried() {
     return gems;
 }
 }
+void note_altar_locks(MatchData& match) {
+    if (match.altars.empty()) {
+        match.altars = cambc::map::altars().positions();
+        match.altar_locked_round.assign(match.altars.size(), 0);
+    }
+    const auto round = cambc::round_number();
+    const auto here = cambc::self().position();
+    const auto locks = cambc::vision::altar_locks(cambc::team::enemy);
+    for (std::size_t i = 0; i < match.altars.size(); ++i) {
+        bool locked = false;
+        for (const auto& lock : locks)
+            if (lock.position() == match.altars[i]) locked = true;
+        if (locked) match.altar_locked_round[i] = round;
+        else if (match.altars[i].chebyshev_distance(here) <= static_cast<std::uint32_t>(constants::kAltarClearDistance)) match.altar_locked_round[i] = 0;
+        else if (match.altar_locked_round[i] && round - match.altar_locked_round[i] > constants::kAltarLockMemoryRounds) match.altar_locked_round[i] = 0;
+    }
+}
+namespace {
+// Tribute range around every altar not known to be locked; empty when none is known locked or
+// all are (then the normal nearest-altar walk and lock breaking apply).
+cambc::bitboard unlocked_approach(const MatchData& match) {
+    cambc::bitboard approach;
+    approach.clear();
+    bool any_locked = false, any_free = false;
+    for (std::size_t i = 0; i < match.altars.size(); ++i) {
+        if (match.altar_locked_round[i]) { any_locked = true; continue; }
+        any_free = true;
+        approach |= tiles_around(match.altars[i], cambc::constants::submit_gems_range);
+    }
+    if (!any_locked || !any_free) approach.clear();
+    return approach & ~match.static_blockers;
+}
+}
 // Bank gems when we carry enough, when an altar is close, or when the gems on hand would
 // take the team past the winning total.
 int TributeState::score(const TurnContext& ctx) {
@@ -46,6 +79,14 @@ StateResult TributeState::execute(TurnContext& ctx, BotMemory& memory) {
         if (distance(me.position(), altar) <= cambc::constants::submit_gems_range && !enemy_locked(altar)) {
             me.submit_gems(altar);
             return StateResult::Done;
+        }
+    }
+    // Another altar not known to be locked: go there instead of breaking a lock.
+    if constexpr (constants::kAltarMemory) {
+        const auto approach = unlocked_approach(*ctx.match_data);
+        if (!approach.is_empty()) {
+            if (me.can_move()) move_towards_closest(approach);
+            return StateResult::Continue;
         }
     }
     // At a locked altar: break the lock, then tribute once it is gone.
