@@ -6,6 +6,7 @@
 #include "brain/state_selector.h"
 #include "brain/team_fight_call.h"
 #include "comms/ally_positions.h"
+#include "comms/team_comms.h"
 #include "nav/safe_recall.h"
 #include "constants/combat_constants.h"
 #include "combat/sdk_trace.h"
@@ -41,6 +42,7 @@ void Bot::play_turn() {
     struct PostTurn { Bot* bot; ~PostTurn() { bot->post_turn(); } } post_turn_guard{this};   // runs on every exit
     if (!match_data_.initialized) run_init_stages(match_data_, memory_);
     if (!match_data_.initialized) return;
+    sweep_team_header();   // every champion, every turn, dead or alive (comms/shared_memory.h)
     if (cambc::self().is_alive()) {   // also while recalling or channelling
         share_ally_positions();
         if constexpr (constants::kTeamFightSharedAllies) remember_teammates();

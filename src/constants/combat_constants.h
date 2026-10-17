@@ -50,14 +50,11 @@ constexpr float kTeamFightSupportWeight = 0.5f;
 constexpr int kTeamFightRadius = 8;
 // Rounds played out before the estimate gives up (Unsure).
 constexpr int kTeamFightRoundCap = 40;
-// Shared-memory slot for a fight call: byte 2 = enemy roster index + 1 (0 = none), byte 3 =
-// round written (mod 256), bytes 4-5 = where the target was seen (x, y). A call older than
-// kTeamFightCallRounds rounds is ignored. Bytes 0-1 are the farm target (states/farm.cpp), bytes
-// 6-7 teammate positions (comms/ally_positions.h).
-constexpr std::size_t kTeamFightCallByte = 2;
+// Fight calls live in the shared header word (comms/shared_memory.h has the whole layout). A call
+// older than kTeamFightCallRounds rounds is ignored.
 constexpr int kTeamFightCallRounds = TEAM_FIGHT_CALL_ROUNDS;   // 2 unless a test build overrides
 // Teammate positions in shared memory (comms/ally_positions.h).
-constexpr std::size_t kAllyPositionByte = 6;
+constexpr std::size_t kAllyPositionByte = 4;   // comms/shared_memory.h team_comms::kPositionByte
 // The estimate also counts teammates we cannot see whose last report is at most this many rounds
 // old and within kTeamFightSharedRadius of us (they walk in, using the stats we last saw them
 // with, or their base stats).

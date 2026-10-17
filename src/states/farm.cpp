@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <span>
 #include "farm.h"
+#include "../comms/shared_memory.h"
+#include "../comms/team_comms.h"
 #include "../core/context.h"
 #include "../core/geometry.h"
 #include "../core/match_data.h"
@@ -69,25 +71,22 @@ int alive_allies() {
     return n;
 }
 
-// The team target lives in shared memory (byte 0: group + 1, byte 1: round written, mod 256).
-// The first living champion in draft order picks it each round, judging camps with the whole
-// team's damage; the others read it.
+// The team target lives in the shared header word (comms/shared_memory.h: camp group + 1 and the
+// round written, mod 8). The first living champion in draft order picks it each round, judging
+// camps with the whole team's damage; the others read it.
 bool i_lead() {
     for (const auto& ally : roster_allies())
         if (ally.is_alive()) return ally == cambc::self();
     return false;
 }
 void write_team_target(std::optional<int> group) {
-    const std::array<std::byte, 2> bytes{std::byte(static_cast<unsigned char>(group ? *group + 1 : 0)),
-                                          std::byte(static_cast<unsigned char>(cambc::round_number() & 0xff))};
-    cambc::shared_memory.write(0, std::span{bytes});
+    write_team_header(team_comms::set_farm(read_team_header(), group ? *group + 1 : 0, cambc::round_number()));
 }
 std::optional<int> read_team_target(const MatchData& match) {
-    std::array<std::byte, 2> bytes{};
-    cambc::shared_memory.read(0, std::span{bytes});
-    const int group = std::to_integer<int>(bytes[0]) - 1;
-    const int age = (static_cast<int>(cambc::round_number()) - std::to_integer<int>(bytes[1])) & 0xff;
-    if (group < 0 || group >= static_cast<int>(match.camp_groups.size()) || age > 2) return std::nullopt;
+    const auto farm = team_comms::get_farm(read_team_header());
+    const int group = farm.group_plus1 - 1;
+    const int age = team_comms::age(cambc::round_number(), farm.round_low, team_comms::kFarmRoundBits);
+    if (group < 0 || group >= static_cast<int>(match.camp_groups.size()) || age > team_comms::kFarmTargetRounds) return std::nullopt;
     return group;
 }
 }

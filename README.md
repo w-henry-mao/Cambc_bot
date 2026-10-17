@@ -203,6 +203,16 @@ Init stages run before baseline states, so states must not depend on `MatchData`
 3. Include the header in `skills/skill_instances.h`
 4. Add instance to champion profiles in `champions/*.cpp`
 
+## Shared Memory
+
+All 8 bytes are laid out in `comms/shared_memory.h`: bytes 0-3 are one packed word holding the
+farm target (6-bit group, 3-bit round) and the fight call (3-bit enemy, 6-bit round, 7-bit x
+and y); bytes 4-5 the teammate position report; bytes 6-7 are free. Rounds are stored modulo 8
+and 64, so `sweep_team_header()` clears expired entries at the start of every champion's turn
+(dead ones too). Repacking was checked against the previous layout: identical replays in 12
+normal matches and in 24 test-caller matches with unlimited fuel; it also fixes a wrap-around
+bug in the old 8-bit round stamp that let a fight call come back exactly 256 rounds later.
+
 ## Safe Recall
 
 Damage cancels a recall, so the recall state (`states/recall.cpp`) first gets out of reach of
@@ -314,7 +324,7 @@ two 391-match batches and a 68-match confirmation batch:
   the estimate (AUC 0.87 over the next 5 rounds, 0.80 over 20), so a fresh estimate every few
   rounds is worth more than one held for long.
 
-**Teammate positions (comms/ally_positions.h).** Bytes 6-7 of shared memory carry one
+**Teammate positions (comms/ally_positions.h).** Bytes 4-5 of shared memory carry one
 teammate's position (2-tile resolution), roster index and a half-health bit; teammates take
 turns, one per round, so each is heard every few rounds. `share_ally_positions()` runs every turn
 (~300 fuel, ~600 when writing). The estimate adds teammates it cannot see whose report is at most
@@ -346,7 +356,7 @@ farther out pays off (without following, 8 tiles / 3 rounds was best). Test swit
 `TEAM_FIGHT_TEST_CALLER`, `TEAM_FIGHT_TEST_CALL_EVERY`, `TEAM_FIGHT_CALL_ROUNDS`,
 `TEAM_FIGHT_SHARED_RADIUS`, `ALLY_POSITION_MAX_AGE`, `DRAFT_PICKS`.
 
-**Fight calls.** `call_team_fight(target)` writes shared memory bytes 2-5 (enemy, round, last
+**Fight calls.** `call_team_fight(target)` writes the shared header word (enemy, round, last
 seen position); a call lapses after `kTeamFightCallRounds` (2) rounds, so the caller repeats it
 each turn while the fight is on. While a call is live, every teammate's attack state hits the
 called enemy whenever it is within reach, otherwise the weakest enemy in reach as before, and

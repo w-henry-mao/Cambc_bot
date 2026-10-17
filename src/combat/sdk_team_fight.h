@@ -37,7 +37,7 @@ void remember_teammates();
 TeamFightSetup team_fight_setup_here(const cambc::champion** enemies_out = nullptr, std::vector<SharedAlly>* shared_out = nullptr,
                                      int* visible_count = nullptr);
 
-// A fight call in shared memory (bytes kTeamFightCallByte..+3): which enemy, when, and where it
+// A fight call in the shared header word (comms/shared_memory.h): which enemy, when, and where it
 // was seen, so teammates that cannot see it know where to go.
 struct TeamFightOrder {
     const cambc::champion* target;   // in roster_enemies()

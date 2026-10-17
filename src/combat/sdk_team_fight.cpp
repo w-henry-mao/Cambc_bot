@@ -7,6 +7,8 @@
 #include <vector>
 #include "sdk_adapter.h"
 #include "../comms/ally_positions.h"
+#include "../comms/shared_memory.h"
+#include "../comms/team_comms.h"
 #include "../constants/combat_constants.h"
 #include "../core/roster.h"
 
@@ -147,28 +149,22 @@ void call_team_fight(const bc::champion& target) {
     const int idx = roster_index(roster_enemies(), target);
     if (idx < 0 || !in_view(target)) return;
     const auto p = target.position();
-    auto byte = [](int v) { return std::byte(static_cast<unsigned char>(std::clamp(v, 0, 255))); };
-    const std::array<std::byte, 4> bytes{byte(idx + 1), byte(static_cast<int>(bc::round_number() & 0xff)), byte(p.x), byte(p.y)};
-    bc::shared_memory.write(constants::kTeamFightCallByte, std::span{bytes});
+    write_team_header(team_comms::set_call(read_team_header(), idx + 1, bc::round_number(), p.x, p.y));
 }
 
-void clear_team_fight_call() {
-    const std::array<std::byte, 4> bytes{};
-    bc::shared_memory.write(constants::kTeamFightCallByte, std::span{bytes});
-}
+void clear_team_fight_call() { write_team_header(team_comms::clear_call(read_team_header())); }
 
 std::optional<TeamFightOrder> team_fight_called() {
-    std::array<std::byte, 4> bytes{};
-    bc::shared_memory.read(constants::kTeamFightCallByte, std::span{bytes});
-    const int idx = std::to_integer<int>(bytes[0]) - 1;
-    const int age = (static_cast<int>(bc::round_number()) - std::to_integer<int>(bytes[1])) & 0xff;
+    const auto call = team_comms::get_call(read_team_header());
+    const int idx = call.enemy_plus1 - 1;
+    const int age = team_comms::age(bc::round_number(), call.round_low, team_comms::kCallRoundBits);
     const auto& enemies = roster_enemies();
     if (idx < 0 || idx >= static_cast<int>(enemies.size()) || age > constants::kTeamFightCallRounds) return std::nullopt;
     const auto& target = enemies[idx];
     try {
         if (!target.is_alive()) return std::nullopt;
     } catch (const std::exception&) {}
-    return TeamFightOrder{&target, bc::vec2{std::to_integer<int>(bytes[2]), std::to_integer<int>(bytes[3])}};
+    return TeamFightOrder{&target, bc::vec2{call.x, call.y}};
 }
 
 // ---- Test-build trace -------------------------------------------------------------------

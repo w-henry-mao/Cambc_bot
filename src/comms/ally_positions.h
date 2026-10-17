@@ -1,5 +1,5 @@
 #pragma once
-// Teammate positions over 2 bytes of shared memory (constants::kAllyPositionByte..+1), so a
+// Teammate positions over 2 bytes of shared memory (bytes 4-5, comms/shared_memory.h), so a
 // champion knows roughly where teammates it cannot see are (vision is not shared).
 //
 // 16 bits hold one champion: bits 0-5 x / 2, bits 6-11 y / 2 (2-tile resolution, maps up to
