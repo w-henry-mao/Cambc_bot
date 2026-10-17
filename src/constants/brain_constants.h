@@ -34,4 +34,8 @@ constexpr int kPursueRange = 8;
 constexpr std::uint32_t kPursueMinGems = 15;
 constexpr float kPursueMinHealth = 0.5f;
 constexpr int kInitFuelReserve = 50000;
+// End-of-turn setup steps (init/deferred_setup.h) run only while this much fuel is left; the
+// largest step (the walk home) costs ~25k on a 100x100 map, so a turn never reaches its limit
+// because of them.
+constexpr int kDeferredSetupReserve = 35000;
 }

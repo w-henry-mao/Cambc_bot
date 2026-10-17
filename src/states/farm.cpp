@@ -13,6 +13,7 @@
 #include "../core/geometry.h"
 #include "../core/match_data.h"
 #include "../core/roster.h"
+#include "../init/deferred_setup.h"
 #include "../nav/blocked_tiles.h"
 #include "../nav/pathfinding.h"
 #include "../skills/casting.h"
@@ -134,7 +135,6 @@ std::optional<int> own_best_camp(const MatchData& match, const cambc::distance_f
         if (report.known && round - report.heard_round <= 2u * static_cast<std::uint32_t>(constants::kAllyPositionMaxAge)) mates[n_mates++] = report.pos;
     }
     const float health = me.health();
-    const std::size_t width = static_cast<std::size_t>(match.map_width);
     Pick best, kept;
     for (int i = 0; i < static_cast<int>(match.camp_groups.size()); ++i) {
         const auto& group = match.camp_groups[static_cast<std::size_t>(i)];
@@ -142,8 +142,7 @@ std::optional<int> own_best_camp(const MatchData& match, const cambc::distance_f
         if (walk == kUnreached) continue;
         int helpers = 0;
         for (int k = 0; k < n_mates; ++k) helpers += static_cast<int>(mates[k].chebyshev_distance(group.centre)) <= constants::kHelpRadius;
-        const std::size_t idx = static_cast<std::size_t>(group.centre.y) * width + static_cast<std::size_t>(group.centre.x);
-        const bool near_spawn = width > 0 && idx < match.home_walk.size() && match.home_walk[idx] <= constants::kNearSpawnWalk;
+        const bool near_spawn = match.home_ready && match.home_distance.get(group.centre) <= constants::kNearSpawnWalk;
         const auto value = camp_value(group, walk, Team{dps * static_cast<float>(1 + helpers), 1 + helpers}, health,
                                       near_spawn ? constants::kMaxCampDamageShareNearSpawn : constants::kMaxCampDamageShare);
         if (!value) continue;
@@ -381,8 +380,10 @@ StateResult FarmState::execute(TurnContext& ctx, BotMemory& memory) {
     // While the group respawns, wait next to its spawn tiles: standing on one would hold the respawn.
     // Otherwise walk onto them (camps of a live group may only be in reach from the spawn tiles of
     // camps already killed; a waiting reward is captured there).
-    if (constants::kWaitBesideSpawn && respawn_ready(group) != 0 && !group.reward_waiting && !group.beside_tiles.is_empty())
-        move_towards_closest(group.beside_tiles);
+    const auto& beside = constants::kWaitBesideSpawn && respawn_ready(group) != 0 && !group.reward_waiting
+        ? beside_tiles(match, match.camp_groups[static_cast<std::size_t>(*match.farm_target)]) : group.beside_tiles;
+    if (constants::kWaitBesideSpawn && respawn_ready(group) != 0 && !group.reward_waiting && !beside.is_empty())
+        move_towards_closest(beside);
     else
         move_towards_closest(group.spawn_tiles);
     return StateResult::Continue;

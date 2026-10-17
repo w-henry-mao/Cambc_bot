@@ -3,6 +3,7 @@
 #include "core/roster.h"
 #include "debug/fuel_meter.h"
 #include "init/initializer.h"
+#include "init/deferred_setup.h"
 #include "core/context.h"
 #include "core/world.h"
 #include "brain/state_selector.h"
@@ -59,6 +60,7 @@ void Bot::post_turn() {
     team_fight_trace_turn();   // test builds only
     recall_trace_turn();       // test builds only
     duel_mode_end_of_turn();   // test builds only
+    continue_deferred_setup(match_data_);   // last: uses whatever fuel the turn left
 }
 void Bot::play_turn() {
     debug::FuelMeter whole("turn total");
