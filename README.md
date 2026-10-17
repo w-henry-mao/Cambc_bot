@@ -256,6 +256,17 @@ On the site (live as v7), rematches of six of v5's unranked matches (same oppone
 maps): games won 13/30 vs 11/30 for v6 and 9/30 for v5; gems banked 19,580 vs 20,191 (v6);
 still 0/15 against Fish, Mite and The Mania.
 
+## Farming: Round Discount
+
+Camp value is (gems + gold x 0.25) x `kRoundDiscount` ^ (walk + kill + capture rounds). Top teams
+hit camps in 25-47% of rounds against our 14-25%; a per-turn trace (`STATE_TRACE`) showed our
+champions walking in about half their farm turns. A lower discount prefers nearer camps. Sweep
+with the current shop and draft (204 matches each, same six opponents as Draft), wins and mean
+gems ours:theirs: 0.99 141 (873:597), 0.97 (old) 177 (949:508), 0.95 186 (968:456), 0.93 190
+(960:419), 0.90 184 (914:415), 0.85 188 (895:404). Head-to-head vs 0.97: 0.93 21/34, 0.95 16/34.
+Default 0.93. In the same sweep, per-champion camps (161) and a camp danger limit of 5 (166)
+were worse; the teammate bonus only matters with per-champion camps.
+
 ## Farming: Camp Danger and Monolith Maps
 
 Ranked play showed a 0 : 1080 loss on stampede. On stampede and contest the only gems are in

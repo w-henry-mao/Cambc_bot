@@ -113,7 +113,7 @@
 #endif
 // Farm tunables for test sweeps (constants/state_constants.h).
 #ifndef ROUND_DISCOUNT
-#define ROUND_DISCOUNT 0.97f
+#define ROUND_DISCOUNT 0.93f
 #endif
 #ifndef GOLD_WEIGHT
 #define GOLD_WEIGHT 0.25f
