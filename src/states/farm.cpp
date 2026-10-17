@@ -52,14 +52,34 @@ std::optional<float> camp_value(const CachedCampGroup& group, int walk, const Te
 
 struct Pick { std::optional<int> group; float value = 0; };
 // Best camp for `team` by walking distance from us; keeps `current` unless another is clearly better.
-Pick best_camp(const MatchData& match, const cambc::distance_field& field, const Team& team, std::optional<int> current) {
+// Whether `group` passes the danger limit for `team` (as in camp_value, ignoring respawn timers).
+bool safe_enough(const CachedCampGroup& group, const Team& team, float my_health, float max_damage_share) {
+    if (team.dps <= 0) return false;
+    const int kill = static_cast<int>(group.design_health / team.dps) + 1;
+    return group.design_strength * static_cast<float>(kill) / static_cast<float>(team.count) <= max_damage_share * my_health;
+}
+
+// Best camp for `team` by walking distance from us; keeps `current` unless another is clearly better.
+// `starved` (gem_starved: no gem group one champion could take, e.g. the only gems are in monoliths): gem groups are taken with kMaxCampDamageShareGemStarved instead, since
+// otherwise we would never bank.
+// Map-level: no gem group passes the danger limit for `team` (see farm_target).
+bool gem_starved(const MatchData& match, const Team& team, float my_health) {
+    for (const auto& group : match.camp_groups)
+        if (group.gem_value > 0 && safe_enough(group, team, my_health, constants::kMaxCampDamageShare)) return false;
+    return true;
+}
+
+Pick best_camp(const MatchData& match, const cambc::distance_field& field, const Team& team, std::optional<int> current,
+               bool starved) {
     const float health = cambc::self().health();
+    const bool gem_group_ok = !starved;
     Pick best, kept;
     for (int i = 0; i < static_cast<int>(match.camp_groups.size()); ++i) {
         const auto& group = match.camp_groups[static_cast<std::size_t>(i)];
         const int walk = field.get(group.centre);
         if (walk == kUnreached) continue;
-        const auto value = camp_value(group, walk, team, health);
+        const float share = !gem_group_ok && group.gem_value > 0 ? constants::kMaxCampDamageShareGemStarved : constants::kMaxCampDamageShare;
+        const auto value = camp_value(group, walk, team, health, share);
         if (!value) continue;
         if (current == i) kept = {i, *value};
         if (!best.group || *value > best.value) best = {i, *value};
@@ -148,11 +168,14 @@ std::optional<int> farm_target(MatchData& match) {
     field.compute(match.static_blockers & ~camp_tiles, tiles_around(me.position(), 0), visited, constants::kCampSearchRange);
     const float dps = my_dps();
     const int team_size = std::max(1, alive_allies());
+    // A property of the map: no gem group even one champion at full health could take within the
+    // normal limit (normal maps have wolves, elks or gem clusters; stampede and contest only monoliths).
+    const bool starved = gem_starved(match, Team{dps, 1}, me.max_health());
     std::optional<int> team_target;
     if (constants::kPerChampionCamps) {
         // No shared team target: every champion decides for itself (opening first, below).
     } else if (i_lead()) {
-        team_target = best_camp(match, field, Team{dps * static_cast<float>(team_size), team_size}, match.farm_target).group;
+        team_target = best_camp(match, field, Team{dps * static_cast<float>(team_size), team_size}, match.farm_target, starved).group;
         write_team_target(team_target);
     } else {
         team_target = read_team_target(match);
@@ -183,13 +206,15 @@ std::optional<int> farm_target(MatchData& match) {
         match.farm_target = own_best_camp(match, field, dps, match.farm_target);
         return match.farm_target;
     }
-    const auto solo = best_camp(match, field, Team{dps, 1}, match.farm_target);
+    const auto solo = best_camp(match, field, Team{dps, 1}, match.farm_target, starved);
     float team_value = 0;
     if (team_target) {
         const auto& group = match.camp_groups[static_cast<std::size_t>(*team_target)];
         const int walk = field.get(group.centre);
         if (walk != kUnreached)
-            if (const auto v = camp_value(group, walk, Team{dps * static_cast<float>(team_size), team_size}, me.health())) team_value = *v;
+            if (const auto v = camp_value(group, walk, Team{dps * static_cast<float>(team_size), team_size}, me.health(),
+                                          starved && group.gem_value > 0 ? constants::kMaxCampDamageShareGemStarved : constants::kMaxCampDamageShare))
+                team_value = *v;
     }
     // A team target we would not take (respawning by the time we arrive, too dangerous) is ignored.
     if (team_value <= 0) team_target.reset();

@@ -213,6 +213,20 @@ and 64, so `sweep_team_header()` clears expired entries at the start of every ch
 normal matches and in 24 test-caller matches with unlimited fuel; it also fixes a wrap-around
 bug in the old 8-bit round stamp that let a fight call come back exactly 256 rounds later.
 
+## Farming: Camp Danger and Monolith Maps
+
+Ranked play showed a 0 : 1080 loss on stampede. On stampede and contest the only gems are in
+monoliths, which the farm logic always rejected as too dangerous (expected damage per champion
+over `kMaxCampDamageShare` = 0.6 of its health), so the team farmed gold all game and banked
+nothing (0 gems in 36/38 local stampede games, 33/38 contest). Monoliths keep their damage while
+we recall and heal, so they can be worn down.
+- `kMaxCampDamageShare` is now 3.0 (0.6 was too cautious on every map).
+- Gem-starved maps (no gem group a single champion could take within that limit: contest,
+  stampede, rows) take gem groups with `kMaxCampDamageShareGemStarved` (no limit).
+Tested on 340 matches (17 maps x 6 opponents, plus head-to-head): wins 74/102 vs 67/102 before,
+mean gems 905 vs 786, zero-gem games 4 vs 9; gem-starved maps 13/18 vs 8/18 (gems 771 vs 328);
+other maps 61/84 vs 59/84; head-to-head 20/34 with gems 877 vs 703. No faults.
+
 ## Farming: Opening and Per-Champion Camps
 
 - Opening (`kOpeningClosestCamp`): at match start each champion farms the camp group with the

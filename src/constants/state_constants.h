@@ -16,7 +16,11 @@ constexpr int kCampSearchRange = 60;
 constexpr float kSwitchFactor = 1.25f;
 // Skip a camp if the damage it would deal while we kill it, shared among us and the allies near
 // us, exceeds this fraction of our health.
-constexpr float kMaxCampDamageShare = 0.6f;
+constexpr float kMaxCampDamageShare = MAX_CAMP_DAMAGE_SHARE;   // test builds may override
+// When no gem group on the map passes kMaxCampDamageShare for a single champion (stampede, contest:
+// the only gems are in monoliths), gem groups use this limit instead, so the team keeps at them
+// through recall cycles (monoliths keep their damage while we heal).
+constexpr float kMaxCampDamageShareGemStarved = MAX_CAMP_DAMAGE_SHARE_GEM_STARVED;
 // Allies within this distance count as helping with a camp.
 constexpr int kHelpRadius = 5;
 // Rough ability damage per round as a fraction of focus (about 1.5-2x focus every 8 rounds).

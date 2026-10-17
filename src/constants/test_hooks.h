@@ -100,3 +100,10 @@
 #ifndef WAIT_FOR_CAMP_FIGHTS
 #define WAIT_FOR_CAMP_FIGHTS true
 #endif
+// Camp danger limit for test sweeps (constants/state_constants.h kMaxCampDamageShare).
+#ifndef MAX_CAMP_DAMAGE_SHARE
+#define MAX_CAMP_DAMAGE_SHARE 3.0f
+#endif
+#ifndef MAX_CAMP_DAMAGE_SHARE_GEM_STARVED
+#define MAX_CAMP_DAMAGE_SHARE_GEM_STARVED 1000.0f
+#endif
