@@ -32,7 +32,8 @@ struct Team { float dps = 0; int count = 0; };
 float my_dps() { auto& me = cambc::self(); return me.strength() + constants::kAbilityDpsPerFocus * me.focus(); }
 
 // value = (gems + gold x weight) x discount ^ (walk + kill + capture); nullopt if not worth it.
-std::optional<float> camp_value(const CachedCampGroup& group, int walk, const Team& team, float my_health) {
+std::optional<float> camp_value(const CachedCampGroup& group, int walk, const Team& team, float my_health,
+                                float max_damage_share = constants::kMaxCampDamageShare) {
     const auto round = cambc::round_number();
     if (group.respawn_ready_round > round + static_cast<std::uint32_t>(walk)) return std::nullopt;   // still respawning on arrival
     int kill = 0;
@@ -40,7 +41,7 @@ std::optional<float> camp_value(const CachedCampGroup& group, int walk, const Te
         if (team.dps <= 0) return std::nullopt;
         kill = static_cast<int>(group.design_health / team.dps) + 1;
         // Camps hit one champion at a time; skip camps that would hurt us too much.
-        if (group.design_strength * static_cast<float>(kill) / static_cast<float>(team.count) > constants::kMaxCampDamageShare * my_health)
+        if (group.design_strength * static_cast<float>(kill) / static_cast<float>(team.count) > max_damage_share * my_health)
             return std::nullopt;
     }
     const float reward = static_cast<float>(group.gem_value) + constants::kGoldWeight * static_cast<float>(group.gold_value);
@@ -113,6 +114,28 @@ std::optional<int> farm_target(MatchData& match) {
         write_team_target(team_target);
     } else {
         team_target = read_team_target(match);
+    }
+    if constexpr (constants::kOpeningClosestCamp) {
+        // Opening: our own closest camp group (by walk from where we first look), until it is
+        // cleared and starts respawning, or kOpeningMaxRounds pass.
+        static std::optional<int> opening;
+        static bool opening_done = false;
+        if (!opening_done) {
+            if (!opening) {
+                int best_walk = kUnreached;
+                for (int i = 0; i < static_cast<int>(match.camp_groups.size()); ++i) {
+                    const int walk = field.get(match.camp_groups[static_cast<std::size_t>(i)].centre);
+                    if (walk < best_walk) { best_walk = walk; opening = i; }
+                }
+            }
+            const bool cleared = opening && match.camp_groups[static_cast<std::size_t>(*opening)].respawn_ready_round > round;
+            if (!opening || cleared || round > constants::kOpeningMaxRounds) {
+                opening_done = true;
+            } else {
+                match.farm_target = opening;
+                return match.farm_target;
+            }
+        }
     }
     const auto solo = best_camp(match, field, Team{dps, 1}, match.farm_target);
     float team_value = 0;

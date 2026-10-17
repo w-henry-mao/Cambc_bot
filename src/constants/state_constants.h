@@ -44,4 +44,9 @@ constexpr float kRecallWeightFriends = 0.25f;
 constexpr float kRecallWeightEnemies = 0.25f;
 constexpr int kRecallEnemyDistCap = 12;
 constexpr float kRecallBushBonus = RECALL_BUSH_BONUS;   // 3
+// Opening (to-do #3): at match start each champion farms the camp group with the shortest walk
+// from where it stands, until that group is cleared (it starts respawning); then normal farming.
+// kOpeningMaxRounds is a safety cap in case the group is never cleared.
+constexpr bool kOpeningClosestCamp = OPENING_CLOSEST_CAMP;
+constexpr std::uint32_t kOpeningMaxRounds = 200;
 }

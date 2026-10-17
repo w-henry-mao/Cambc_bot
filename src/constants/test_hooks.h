@@ -81,3 +81,7 @@
 #ifndef SCORE_TRACE
 #define SCORE_TRACE false
 #endif
+// Opening: each champion starts at its own closest camp (false: the old opening, for A/B tests).
+#ifndef OPENING_CLOSEST_CAMP
+#define OPENING_CLOSEST_CAMP true
+#endif
