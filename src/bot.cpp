@@ -25,6 +25,7 @@
 #include "states/farm.h"
 #include "brain/state.h"
 #include "constants/brain_constants.h"
+#include "constants/state_constants.h"
 Bot::Bot() : profile_(nullptr) {}
 bool Bot::turn_guard() {
     auto& me = cambc::self();
@@ -77,6 +78,14 @@ void Bot::play_turn() {
     shop_pre_step();
     test_place_altar_lock();   // test opponent builds only
     place_altar_lock();        // constants::kAltarLockPlan (0: never)
+    if constexpr (constants::kBunchMode == 1) {   // rally test: broadcast where enemies are near us
+        const auto here = cambc::self().position();
+        for (const auto& e : roster_enemies())
+            if (in_view(e) && e.position().chebyshev_distance(here) <= static_cast<std::uint32_t>(constants::kRallyTrigger)) {
+                write_rally(here.x, here.y);
+                break;
+            }
+    }
     if (duel_mode_turn()) return;   // test builds only
     static ChampionProfile placeholder_profile{.is_ranged = false, .skills = {}, .linked_pair = false};
     TurnContext ctx(placeholder_profile);

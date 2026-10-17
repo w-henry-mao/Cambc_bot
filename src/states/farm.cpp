@@ -218,16 +218,78 @@ std::optional<int> farm_target(MatchData& match) {
     }
     // A team target we would not take (respawning by the time we arrive, too dangerous) is ignored.
     if (team_value <= 0) team_target.reset();
+    if constexpr (constants::kStayTogether) {
+        // Stay together: always the team target (solo only when there is none).
+        match.farm_target = team_target ? team_target : solo.group;
+        return match.farm_target;
+    }
     match.farm_target = (solo.group && solo.value >= team_value) ? solo.group : team_target;
     return match.farm_target;
 }
 
 int FarmState::score(const TurnContext& ctx) { return constants::kFarmScore; }
 
+namespace {
+// Stay together (constants::kStayTogether): where the group leader (first living champion in
+// draft order) is, seen or from its last position report; nullopt if we lead or do not know.
+std::optional<cambc::vec2> group_anchor() {
+    const auto& allies = roster_allies();
+    for (int i = 0; i < static_cast<int>(allies.size()); ++i) {
+        const auto& a = allies[static_cast<std::size_t>(i)];
+        if (!a.is_alive()) continue;
+        if (a == cambc::self()) return std::nullopt;
+        if (in_view(a)) return a.position();
+        const auto& report = ally_position(i);
+        if (report.known && cambc::round_number() - report.heard_round <= 2u * static_cast<std::uint32_t>(constants::kAllyPositionMaxAge))
+            return report.pos;
+        return std::nullopt;
+    }
+    return std::nullopt;
+}
+}
+
 StateResult FarmState::execute(TurnContext& ctx, BotMemory& memory) {
     auto& me = cambc::self();
     auto& match = *ctx.match_data;
     if (!farm_target(match)) return StateResult::Failed;
+    if constexpr (constants::kBunchMode == 1) {
+        // Rally: a teammate saw enemies nearby; join it before farming on.
+        const auto rally = read_rally(constants::kRallyRounds);
+        if (rally.set && me.can_move()) {
+            const cambc::vec2 spot{rally.x, rally.y};
+            const int d = distance(me.position(), spot);
+            if (d <= constants::kRallyRange && d > constants::kRallyRadius) {
+                move_towards_closest(tiles_around(spot, constants::kRallyRadius));
+                return StateResult::Continue;
+            }
+        }
+    }
+    if constexpr (constants::kBunchMode == 2) {
+        // Local: enemies in sight and our nearest visible teammate is away: close up with it.
+        bool enemy_near = false;
+        for (const auto& e : roster_enemies())
+            if (in_view(e) && distance(e.position(), me.position()) <= constants::kRallyTrigger) { enemy_near = true; break; }
+        if (enemy_near && me.can_move()) {
+            std::optional<cambc::vec2> mate;
+            int best = 1 << 20;
+            for (const auto& a : roster_allies()) {
+                if (a == me || !in_view(a)) continue;
+                const int d = distance(a.position(), me.position());
+                if (d < best) { best = d; mate = a.position(); }
+            }
+            if (mate && best > constants::kRallyRadius) {
+                move_towards_closest(tiles_around(*mate, constants::kRallyRadius));
+                return StateResult::Continue;
+            }
+        }
+    }
+    if constexpr (constants::kStayTogether) {
+        // Drifted away from the leader: walk back before farming on.
+        if (const auto anchor = group_anchor(); anchor && me.can_move() && distance(me.position(), *anchor) > constants::kGroupRadius) {
+            move_towards_closest(tiles_around(*anchor, constants::kGroupRadius / 2));
+            return StateResult::Continue;
+        }
+    }
     const auto& group = match.camp_groups[static_cast<std::size_t>(*match.farm_target)];
     // Hit the weakest live camp of our target in range: ability first, then basic attack.
     const cambc::camp* weakest = nullptr;

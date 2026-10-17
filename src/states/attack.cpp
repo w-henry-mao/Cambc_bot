@@ -63,6 +63,7 @@ CampFight camp_fight(const cambc::champion& e, const std::vector<cambc::camp>& c
 // whether some enemy within reach is one we are waiting on, with its camp fight.
 struct Targets {
     const cambc::champion* attack = nullptr;
+    const cambc::champion* chase = nullptr;   // kPursuePlan 2: a channelling gem carrier to walk to
     CampFight attack_camp;                 // the attack target's camp fight, if any
     std::optional<CampFight> waiting;
 };
@@ -83,6 +84,29 @@ Targets pick_targets(int radius, const MatchData* match) {
         }
         if (!t.attack || e.health() < t.attack->health()) t.attack = &e;
     }
+    if constexpr (constants::kPursuePlan >= 1) {
+        // A recalling or tributing enemy in reach comes first: our hit cancels a recall, and a
+        // tributing enemy carries gems (the weakest such enemy).
+        const cambc::champion* channelling = nullptr;
+        for (const auto& e : roster_enemies()) {
+            if (!in_view(e) || distance(e.position(), me) > radius || !(e.is_recalling() || e.is_submitting_gems())) continue;
+            if (!channelling || e.health() < channelling->health()) channelling = &e;
+        }
+        if (channelling) { t.attack = channelling; t.attack_camp = CampFight{}; }
+    }
+    if constexpr (constants::kPursuePlan >= 2) {
+        // Nobody to hit: chase a channelling enemy carrying gems, if we are healthy enough.
+        auto& self = cambc::self();
+        if (!t.attack && !t.waiting && self.health() >= constants::kPursueMinHealth * self.max_health()) {
+            int best = 1 << 20;
+            for (const auto& e : roster_enemies()) {
+                if (!in_view(e) || !(e.is_recalling() || e.is_submitting_gems())) continue;
+                const int d = distance(e.position(), me);
+                if (d > constants::kPursueRange || e.gem_count() < constants::kPursueMinGems) continue;
+                if (d < best) { best = d; t.chase = &e; }
+            }
+        }
+    }
     return t;
 }
 }
@@ -91,7 +115,7 @@ Targets pick_targets(int radius, const MatchData* match) {
 // first whenever it is within reach, and with nobody in reach we walk to it.
 int AttackState::score(const TurnContext& ctx) {
     const auto t = pick_targets(reach(), ctx.match_data);
-    if (t.attack || t.waiting) return constants::kAttackScore;
+    if (t.attack || t.waiting || t.chase) return constants::kAttackScore;
     if (team_fight_called()) return constants::kTeamFightCallScore;
     return 0;
 }
@@ -109,7 +133,7 @@ StateResult AttackState::execute(TurnContext& ctx, BotMemory& memory) {
     if (const auto order = team_fight_called()) {
         const auto& called = *order->target;
         const bool called_visible = in_view(called);
-        if constexpr (constants::kTeamFightTestCaller)
+        if constexpr (constants::kTeamFightTestCaller && constants::kTeamFightTrace)
             std::cout << "TEAM_FOLLOW r=" << cambc::round_number() << " me=" << cambc::to_string(me.champion_name())
                       << " target=" << (called_visible ? cambc::to_string(called.champion_name()) : "?")   // hidden: reading it throws
                       << " visible=" << called_visible
@@ -124,6 +148,16 @@ StateResult AttackState::execute(TurnContext& ctx, BotMemory& memory) {
             if (me.can_move()) walk_to(called_visible ? called.position() : order->last_seen);
             return StateResult::Continue;
         }
+    }
+    if (!target && targets.chase) {
+        // Pursuit (kPursuePlan 2): walk to the channelling gem carrier, hit it if we get there.
+        cast_support();
+        if (me.can_move()) walk_to(targets.chase->position());
+        if (targets.chase->is_visible() && targets.chase->health() > 0) {
+            cast_at(*targets.chase);
+            attack_with_reset(*targets.chase);
+        }
+        return StateResult::Continue;
     }
     if (!target && targets.waiting) {
         // Waiting for the enemy to wear itself out on the camp: hold, and step back if the camp

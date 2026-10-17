@@ -36,7 +36,22 @@
 namespace team_comms {
 constexpr std::size_t kHeaderByte = 0;     // 4 bytes
 constexpr std::size_t kPositionByte = 4;   // 2 bytes
-constexpr std::size_t kFreeByte = 6;       // 2 bytes, unused
+constexpr std::size_t kFreeByte = 6;       // 2 bytes; used only by the rally test (kBunchMode 1)
+constexpr std::size_t kRallyByte = 6;
+
+// Rally point (test feature, kBunchMode 1), bytes 6-7: bits 0-5 x / 2 + 1 (never zero, so an
+// all-zero slot means none; maps up to 124 tiles wide), bits 6-11 y / 2, bits 12-15 round & 15.
+// Cleared by sweep_team_header() once older than kRallyRounds.
+constexpr int kRallyRoundBits = 4;
+inline std::uint16_t pack_rally(int x, int y, std::uint32_t round) {
+    auto c = [](int v, int max) { return static_cast<std::uint16_t>(v < 0 ? 0 : v / 2 > max ? max : v / 2); };
+    return static_cast<std::uint16_t>((c(x, 62) + 1) | (c(y, 63) << 6) | ((round & 15u) << 12));
+}
+struct RallyField { bool set = false; int x = 0, y = 0, round_low = 0; };
+inline RallyField unpack_rally(std::uint16_t bits) {
+    if ((bits & 63) == 0) return {};
+    return {true, ((bits & 63) - 1) * 2 + 1, ((bits >> 6) & 63) * 2 + 1, static_cast<int>((bits >> 12) & 15)};
+}
 
 constexpr int kFarmRoundBits = 3, kCallRoundBits = 6;
 constexpr int kFarmTargetRounds = 2;   // a farm target older than this is ignored

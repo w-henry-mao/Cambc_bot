@@ -236,7 +236,9 @@ nothing (0 gems in 36/38 local stampede games, 33/38 contest). Monoliths keep th
 we recall and heal, so they can be worn down.
 - `kMaxCampDamageShare` is now 3.0 (0.6 was too cautious on every map).
 - Gem-starved maps (no gem group a single champion could take within that limit: contest,
-  stampede, rows) take gem groups with `kMaxCampDamageShareGemStarved` (no limit).
+  stampede, rows) take gem groups with `kMaxCampDamageShareGemStarved` (no limit). The check is
+  re-made every round from the champion's current health and damage, which grow with shards, so
+  on a borderline map (rows) a champion can stop counting the map as starved mid-game.
 Tested on 340 matches (17 maps x 6 opponents, plus head-to-head): wins 74/102 vs 67/102 before,
 mean gems 905 vs 786, zero-gem games 4 vs 9; gem-starved maps 13/18 vs 8/18 (gems 771 vs 328);
 other maps 61/84 vs 59/84; head-to-head 20/34 with gems 877 vs 703. No faults.
@@ -278,6 +280,41 @@ visible (`champion::gem_count` works on enemies; 76/76 readings matched the enem
 a self-play probe). Out of sight it returns the last reading and how many rounds old it is. It
 also gives the gem value of the camp group the enemy is fighting (a damaged camp within its
 reach), so `total()` is what it holds once it captures that group. Nothing calls it yet.
+
+## Grouping: Together vs Separate (no change)
+
+Three alternatives to the current farming (one team target, solo when a solo camp is worth
+more) were A/B tested (884 matches). Mean teammates within 5 tiles: together 3.03, current 1.63,
+combination 1.09, separate 0.94.
+- Together (`kStayTogether`): team target only, regroup to the leader beyond `kGroupRadius`.
+  Clearly worse: 8/34 vs the current bot, 57/85 vs 64/85 against other opponents.
+- Separate (`kPerChampionCamps` with `kCampTeammateBonus` -6): 19/34 vs current; wins vs
+  others 168/221 combined vs current 167/221.
+- Combination (separate farming + converge on fight calls, every 3 rounds): 19/34 vs current;
+  172/221 vs 167/221; vs separate 17/34.
+Separate and combination are within noise of the current bot, so farming is unchanged.
+
+Bunching only when enemies are near (`kBunchMode`, 357 more matches) did not help either. The
+current bot already has 2.05 teammates within 5 tiles on turns with an enemy within 8.
+- Rally (1): a champion seeing an enemy within `kRallyTrigger` broadcasts a rally point (bytes
+  6-7); farming teammates within `kRallyRange` gather there. 10/34 vs current, 57/85 vs others
+  (current 64/85). A stronger rally (range 25, radius 2, 6 rounds): 12/34, 62/85.
+- Local (2): a farming champion seeing an enemy closes up with its nearest visible teammate.
+  15/34 vs current, 64/85 vs others (same as current).
+All off; bytes 6-7 stay free unless rally mode is switched on.
+
+## Channel Safety and Pursuit (both off)
+
+- Tribute safety (`brain/channel_safety.cpp`, the team's `channel_still_safe()` hook from main):
+  `kTributeSafetyPlan` 1 cancels a tribute when hit since our last turn, 2 when the enemies in
+  reach could deal our remaining health before it completes; recalls are left alone (damage
+  cancels them anyway). Tributes last only 1-4 turns, so it almost never triggers (1 cancel in 4
+  matches vs opp-rush for plan 1, none for plan 2): off, since no effect could be measured.
+- Pursuit (`states/attack.cpp`, `kPursuePlan`): 1 attacks a recalling/tributing enemy in reach
+  first; 2 also chases one within `kPursueRange` carrying at least `kPursueMinGems` while we have
+  at least `kPursueMinHealth`. 612 matches: plan 1 68/102 vs 69/102 off; plan 2 tied with off
+  on fresh opponents (103/136 each) and 51/68 vs 52/68 on the first opponents (its 20/34
+  head-to-head is one deterministic set of games). Off.
 
 ## Dash
 

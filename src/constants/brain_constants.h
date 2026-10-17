@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include "test_hooks.h"
 namespace constants {
 constexpr int kRecallScore = RECALL_SCORE;   // test builds may override
@@ -22,5 +23,15 @@ constexpr int kAltarLockRange = 2;
 // Dash (skills/dash_move.h): plan 0 never, 1 to close in on the attack target, 2 toward the safe
 // tile when retreating to recall, 3 both.
 constexpr int kDashPlan = DASH_PLAN;   // 2: escape only (tested best; README)
+// Tribute safety (brain/channel_safety.h): 0 never cancel, 1 cancel when hit, 2 cancel when the
+// enemies in reach could kill us before the tribute completes.
+constexpr int kTributeSafetyPlan = TRIBUTE_SAFETY_PLAN;
+// Pursuit (states/attack.cpp): 0 off; 1 a recalling/tributing enemy in reach is attacked first;
+// 2 also chase one within kPursueRange carrying at least kPursueMinGems while we have at least
+// kPursueMinHealth of our health.
+constexpr int kPursuePlan = PURSUE_PLAN;
+constexpr int kPursueRange = 8;
+constexpr std::uint32_t kPursueMinGems = 15;
+constexpr float kPursueMinHealth = 0.5f;
 constexpr int kInitFuelReserve = 50000;
 }

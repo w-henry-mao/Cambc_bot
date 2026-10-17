@@ -119,3 +119,28 @@
 #ifndef DASH_PLAN
 #define DASH_PLAN 2
 #endif
+// Tribute safety plan (constants/brain_constants.h kTributeSafetyPlan).
+#ifndef TRIBUTE_SAFETY_PLAN
+#define TRIBUTE_SAFETY_PLAN 0
+#endif
+// Pursuit plan (constants/brain_constants.h kPursuePlan).
+#ifndef PURSUE_PLAN
+#define PURSUE_PLAN 0
+#endif
+// Stay-together farming (constants/state_constants.h kStayTogether).
+#ifndef STAY_TOGETHER
+#define STAY_TOGETHER false
+#endif
+// Bunch-up-near-enemies mode (constants/state_constants.h kBunchMode).
+#ifndef BUNCH_MODE
+#define BUNCH_MODE 0
+#endif
+#ifndef RALLY_RANGE
+#define RALLY_RANGE 15
+#endif
+#ifndef RALLY_RADIUS
+#define RALLY_RADIUS 3
+#endif
+#ifndef RALLY_ROUNDS
+#define RALLY_ROUNDS 3
+#endif

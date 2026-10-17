@@ -45,3 +45,13 @@ TEST(test_header_age) {
 TEST(test_layout_bytes) {
     CHECK(kHeaderByte + 4 == kPositionByte); CHECK(kPositionByte + 2 == kFreeByte); CHECK(kFreeByte + 2 == 8);
 }
+TEST(test_rally_packing) {
+    for (int x = 0; x < 100; x += 3)
+        for (int y = 0; y < 100; y += 7)
+            for (std::uint32_t r = 0; r < 40; r += 5) {
+                const auto f = unpack_rally(pack_rally(x, y, r));
+                CHECK(f.set); CHECK(f.x == (x / 2) * 2 + 1); CHECK(f.y == (y / 2) * 2 + 1); CHECK(f.round_low == static_cast<int>(r & 15));
+            }
+    CHECK(!unpack_rally(0).set);
+    CHECK(age(17, 15, kRallyRoundBits) == 2);   // wraps at 16
+}

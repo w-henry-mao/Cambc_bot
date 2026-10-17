@@ -28,7 +28,7 @@ void decide_team_fight_call() {
         const auto call = estimate_team_fight_here();
         if (call.estimate.call == TeamCall::Fight && call.target) {
             call_team_fight(*call.target);
-            std::cout << "TEAM_CALL r=" << cambc::round_number() << " me=" << cambc::to_string(cambc::self().champion_name())
+            if constexpr (constants::kTeamFightTrace) std::cout << "TEAM_CALL r=" << cambc::round_number() << " me=" << cambc::to_string(cambc::self().champion_name())
                       << " target=" << cambc::to_string(call.target->champion_name()) << " allies=" << call.allies
                       << " enemies=" << call.enemies << '\n';
         }

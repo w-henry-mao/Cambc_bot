@@ -33,4 +33,28 @@ void sweep_team_header() {
     const auto call = get_call(w);
     if (call.enemy_plus1 != 0 && age(round, call.round_low, kCallRoundBits) > constants::kTeamFightCallRounds) w = clear_call(w);
     if (w != word) write_team_header(w);
+    // Rally point: clear once expired so its 4-bit round stamp cannot wrap into looking fresh.
+    std::array<std::byte, 2> raw{};
+    cambc::shared_memory.read(kRallyByte, std::span{raw});
+    const auto bits = static_cast<std::uint16_t>(std::to_integer<unsigned>(raw[0]) | (std::to_integer<unsigned>(raw[1]) << 8));
+    const auto rally = unpack_rally(bits);
+    if (rally.set && age(round, rally.round_low, kRallyRoundBits) > constants::kRallyRounds) {
+        const std::array<std::byte, 2> zero{};
+        cambc::shared_memory.write(kRallyByte, std::span{zero});
+    }
+}
+
+void write_rally(int x, int y) {
+    const auto bits = team_comms::pack_rally(x, y, cambc::round_number());
+    const std::array<std::byte, 2> raw{std::byte(static_cast<unsigned char>(bits & 0xff)), std::byte(static_cast<unsigned char>(bits >> 8))};
+    cambc::shared_memory.write(team_comms::kRallyByte, std::span{raw});
+}
+
+team_comms::RallyField read_rally(int max_age) {
+    std::array<std::byte, 2> raw{};
+    cambc::shared_memory.read(team_comms::kRallyByte, std::span{raw});
+    const auto bits = static_cast<std::uint16_t>(std::to_integer<unsigned>(raw[0]) | (std::to_integer<unsigned>(raw[1]) << 8));
+    auto r = team_comms::unpack_rally(bits);
+    if (r.set && team_comms::age(cambc::round_number(), r.round_low, team_comms::kRallyRoundBits) > max_age) r.set = false;
+    return r;
 }

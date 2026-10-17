@@ -66,4 +66,6 @@ constexpr bool kTeamFightTestCaller = TEAM_FIGHT_TEST_CALLER;
 constexpr int kTeamFightTestCallEvery = TEAM_FIGHT_TEST_CALL_EVERY;
 // Test builds: log TEAM_PRED / TEAM_END lines to check the estimate against real fights.
 constexpr bool kTeamFightTrace = TEAM_FIGHT_TRACE;
+// Rally point lifetime in rounds (comms/team_comms.h; must stay below 15, a 4-bit stamp).
+constexpr int kRallyRounds = RALLY_ROUNDS;   // 3 unless a test build overrides
 }

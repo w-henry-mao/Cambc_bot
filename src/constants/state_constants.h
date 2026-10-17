@@ -62,4 +62,17 @@ constexpr bool kPerChampionCamps = PER_CHAMPION_CAMPS;   // off: lost ~120-200 g
 constexpr float kCampTeammateBonus = CAMP_TEAMMATE_BONUS;   // 6 unless a test build overrides
 constexpr int kNearSpawnWalk = 15;
 constexpr float kMaxCampDamageShareNearSpawn = MAX_CAMP_SHARE_NEAR_SPAWN;   // 0.6 (= the normal limit; 1.0 tested worse)
+// Stay together (A/B test): farm only the team target, and when farming walk back to the
+// leader (first living champion in draft order) if more than kGroupRadius tiles away.
+constexpr bool kStayTogether = STAY_TOGETHER;
+constexpr int kGroupRadius = 5;
+// Bunch up when enemies are near (A/B test). kBunchMode 1 (rally): a champion seeing an enemy
+// within kRallyTrigger broadcasts a rally point at its position; farming teammates within
+// kRallyRange walk to within kRallyRadius of it while it is at most kRallyRounds old.
+// kBunchMode 2 (local): a farming champion seeing an enemy within kRallyTrigger walks toward its
+// nearest visible teammate if that one is more than kRallyRadius away. 0 = off.
+constexpr int kBunchMode = BUNCH_MODE;
+constexpr int kRallyTrigger = 8;
+constexpr int kRallyRange = RALLY_RANGE;   // 15 unless a test build overrides
+constexpr int kRallyRadius = RALLY_RADIUS;   // 3
 }
