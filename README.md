@@ -266,6 +266,10 @@ gems ours:theirs: 0.99 141 (873:597), 0.97 (old) 177 (949:508), 0.95 186 (968:45
 (960:419), 0.90 184 (914:415), 0.85 188 (895:404). Head-to-head vs 0.97: 0.93 21/34, 0.95 16/34.
 Default 0.93. In the same sweep, per-champion camps (161) and a camp danger limit of 5 (166)
 were worse; the teammate bonus only matters with per-champion camps.
+On the site (live as v8, with the Draft and Shop changes), rematches of v5's last ten unranked
+matches (same opponent versions and maps): games won 34/50 (v6 29, v5 27), gems banked 41,027
+(v6 38,378, v5 36,476); first game won against Mite, and 25-35% more gems than v5 against each of
+Fish, Mite and The Mania (still 1/15 games against them).
 
 ## Farming: Camp Danger and Monolith Maps
 
