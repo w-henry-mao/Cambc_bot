@@ -74,6 +74,9 @@ src/
 │   ├── our_policy.h/.cpp        Combat decisions shared with states/attack.cpp, skills/casting.cpp
 │   ├── turn_order.h/.cpp        Who acts when
 │   ├── sdk_adapter.h/.cpp       predict_duel_fast/full, two_v_one_favourable (live SDK state in)
+│   ├── team_fight.h/.cpp        Rough team-fight estimate, round by round
+│   ├── team_fight_quick.cpp     Same estimate, event-driven (cheaper, rougher)
+│   ├── sdk_team_fight.h/.cpp    estimate_team_fight_here, fight calls in shared memory
 │   └── sdk_trace, sdk_duel_mode Test-build logging and duel mode (off in normal builds)
 │
 └── debug/
@@ -103,6 +106,9 @@ src/
    - Use hysteresis: challenger must beat current by margin
    - Call on_exit on switch, on_enter for new state
    - On failure, try next-highest state once
+
+   Just before scoring, `decide_team_fight_call()` (`brain/team_fight_call.cpp`) may call a team
+   fight. It is empty for now: the team decides when to call.
 
 5. **Execute state** (in `states/*.cpp`):
    - Wrapped in try/catch for `cambc::error`
@@ -226,6 +232,94 @@ own champion, without camp damage, and only paths for the same matchup are check
 starter-cpp: a hit costs ~6,400 fuel, a miss ~19,900, no cache ~18,300; it pays off above
 roughly a 12% hit rate. Hit rates seen: 90% vs a maximally aggressive opponent, 41% vs
 starter-cpp, 5-14% in self-play. Switch: `kPathCacheEnabled` (constants/combat_constants.h).
+
+## Team Fights
+
+```cpp
+#include "combat/sdk_team_fight.h"
+TeamFightCall c = estimate_team_fight_here();   // c.estimate.call: Fight / Avoid / Unsure
+if (c.estimate.call == TeamCall::Fight && c.target) call_team_fight(*c.target);
+```
+
+The estimate takes us, the allies we can see and the enemies we can see within
+`kTeamFightRadius` (8). Vision is not shared, so allies out of our own vision are left out. It
+plays the fight out with each champion attacking the weakest opponent within its reach (as
+`states/attack.cpp` does) and answers **Fight** if we still win with the enemy's damage x
+`kTeamFightMargin` (1.3), **Avoid** if they still win with ours x 1.3, else **Unsure**. Rules
+and simplifications are listed in `combat/team_fight.h`. Like the duel predictor it assumes
+everyone fights to the end (no recall).
+
+Two versions with the same interface: round by round (`estimate_team_fight`) and event-driven
+(`estimate_team_fight_quick`, the default via `kTeamFightQuick`). In 20 test matches (10 maps,
+self-play and vs starter-cpp; outcome = deaths among those champions over the next 20 rounds,
+estimates with no deaths left out), on the 129 estimates where both ran (the round version was
+skipped on turns with little fuel left):
+
+| call | round version: we lost fewer / more | quick version: we lost fewer / more |
+| --- | --- | --- |
+| Fight | 79% / 15% (53) | 79% / 15% (53) |
+| Unsure | 55% / 45% (20) | 55% / 44% (18) |
+| Avoid | 30% / 57% (56) | 31% / 56% (58) |
+
+Over all 357 quick estimates (busy turns included): Fight 73% / 17%, Unsure 57% / 40%, Avoid
+28% / 62%. The two agreed on 167 of 183 calls. Fuel (median), reading the live state plus estimating:
+3 champions ~5k + ~5k (quick) or ~13k (round); 6 champions ~10k + ~12k (quick) or ~31k
+(round). The round version can exceed 50k with 6 or more champions.
+
+**Accuracy work (tools/team_resim.cpp).** Every TEAM_PRED line logs the full model input, so
+`tools/team_dataset.py` + `tools/team_resim.cpp` replay thousands of logged fights through model
+variants in seconds (it first checks it reproduces the logged calls: 100% on current logs). In
+two 391-match batches and a 68-match confirmation batch:
+- Heals and shields at half weight (`kTeamFightSupportWeight` = 0.5) ranked real fights best and
+  held up on fresh data; spells and stuns are about right as modelled.
+- No gain from: modelling recall on either side, leaving distant champions out, a 20-round cap,
+  or adding enemies this champion saw recently but cannot see now.
+- The main error is reinforcements: with nobody arriving later the estimate ranks fights far
+  better (AUC 0.85 vs 0.72 when enemies or allies join). Accuracy also falls with time after
+  the estimate (AUC 0.87 over the next 5 rounds, 0.80 over 20), so a fresh estimate every few
+  rounds is worth more than one held for long.
+
+**Teammate positions (comms/ally_positions.h).** Bytes 6-7 of shared memory carry one
+teammate's position (2-tile resolution), roster index and a half-health bit; teammates take
+turns, one per round, so each is heard every few rounds. `share_ally_positions()` runs every turn
+(~300 fuel, ~600 when writing). The estimate adds teammates it cannot see whose report is at most
+`kAllyPositionMaxAge` (3) rounds old and within `kTeamFightSharedRadius` (8) tiles, with the stats
+this champion last saw them with (`remember_teammates()` refreshes those every 10 rounds). Tested
+on 340 matches with forced drafts covering all 12 champions: ranking improves a little (AUC
+0.780 -> 0.783 tuning, 0.810 -> 0.825 held-out) with call accuracy at margin 1.3 unchanged (64%).
+Wider radii or older reports rank about the same but call worse (down to 60%): a reported
+teammate actually joins only ~55% of the time. Switch: `kTeamFightSharedAllies`.
+
+**Per champion.** With forced drafts (`DRAFT_PICKS=1,2,5,6,8` etc. in test builds), every
+champion appeared in over 500 estimated fights; calls over the next 10 rounds were right 73-79%
+of the time with any one champion on our side and 80-84% with it on the enemy side, so no
+champion is misjudged by the model.
+
+**Calling and following (test caller, 408 matches, 6 opponents x 17 maps).** Logged calls,
+non-starter opponents, outcome = who lost more champions:
+
+| our build | calls right, next 10 rounds | next 20 rounds | Fight calls right (20) |
+| --- | --- | --- | --- |
+| no calls | 68% | 63% | 52% |
+| estimate every turn, call on Fight, team follows | 76% | 71% | 68% |
+| estimate every 3 rounds (calls last 3 rounds) | 75% | 70% | 68% |
+| every 3 rounds + reported teammates within 12 tiles, reports <= 6 rounds | 78% | 74% | 70% |
+
+A followed call makes the estimate come true more often; every 3 rounds is as good as every turn
+for a third of the estimates; and once teammates follow calls, counting reported teammates
+farther out pays off (without following, 8 tiles / 3 rounds was best). Test switches:
+`TEAM_FIGHT_TEST_CALLER`, `TEAM_FIGHT_TEST_CALL_EVERY`, `TEAM_FIGHT_CALL_ROUNDS`,
+`TEAM_FIGHT_SHARED_RADIUS`, `ALLY_POSITION_MAX_AGE`, `DRAFT_PICKS`.
+
+**Fight calls.** `call_team_fight(target)` writes shared memory bytes 2-5 (enemy, round, last
+seen position); a call lapses after `kTeamFightCallRounds` (2) rounds, so the caller repeats it
+each turn while the fight is on. While a call is live, every teammate's attack state hits the
+called enemy whenever it is within reach, otherwise the weakest enemy in reach as before, and
+with no enemy in reach it walks to the called enemy (or where it was last seen). That walk scores
+`kTeamFightCallScore` (80), so recall (100) still wins over it. With no call, play is unchanged
+(identical replays checked). `TEAM_FIGHT_TEST_CALLER=true` test builds call whenever the estimate
+says Fight, to exercise the follow-up. Report: `python3 tools/team_fight_report.py <replay-dir>`
+on `TEAM_FIGHT_TRACE=true` builds.
 
 Tests: `make -C tests test` (host, no SDK). Exact duels: `python3 tools/duel_harness.py`.
 In-match accuracy: `python3 tools/accuracy_runs.py`. Test builds come from

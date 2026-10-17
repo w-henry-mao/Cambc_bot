@@ -17,6 +17,14 @@ void play_draft() {
         const auto first = static_cast<cambc::champion_draft>(DUEL_FIRST_PICK);
         if (!already_picked(chosen, first)) { cambc::draft::pick(first); return; }
     }
+    // Test builds may set the whole draft (constants/test_hooks.h DRAFT_PICKS); -1 in normal builds.
+    constexpr int kTestPicks[] = {DRAFT_PICKS};
+    if constexpr (kTestPicks[0] >= 0) {
+        for (const int p : kTestPicks) {
+            const auto pick = static_cast<cambc::champion_draft>(p);
+            if (!already_picked(chosen, pick)) { cambc::draft::pick(pick); return; }
+        }
+    }
     for (const auto pick : constants::draft_priority) {
         if (!already_picked(chosen, pick)) {
             cambc::draft::pick(pick);

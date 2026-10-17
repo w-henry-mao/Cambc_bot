@@ -79,6 +79,8 @@ struct CacheEntry {
 };
 }  // namespace
 
+Fighter fighter_state(const bc::champion& c) { return fighter_from(c, c == bc::self()); }
+
 DuelSetup duel_setup(const bc::champion& ours, const bc::champion& enemy, const FightOptions& options) {
     DuelSetup setup;
     const auto& me = bc::self();

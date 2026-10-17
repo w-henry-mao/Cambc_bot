@@ -4,8 +4,12 @@
 #include "core/context.h"
 #include "core/world.h"
 #include "brain/state_selector.h"
+#include "brain/team_fight_call.h"
+#include "comms/ally_positions.h"
+#include "constants/combat_constants.h"
 #include "combat/sdk_trace.h"
 #include "combat/sdk_duel_mode.h"
+#include "combat/sdk_team_fight.h"
 #include "states/shop.h"
 #include "states/recall.h"
 #include "states/attack.h"
@@ -27,6 +31,7 @@ bool Bot::turn_guard() {
 }
 void Bot::post_turn() {
     combat_trace_turn();
+    team_fight_trace_turn();   // test builds only
     duel_mode_end_of_turn();   // test builds only
 }
 void Bot::play_turn() {
@@ -34,6 +39,10 @@ void Bot::play_turn() {
     struct PostTurn { Bot* bot; ~PostTurn() { bot->post_turn(); } } post_turn_guard{this};   // runs on every exit
     if (!match_data_.initialized) run_init_stages(match_data_, memory_);
     if (!match_data_.initialized) return;
+    if (cambc::self().is_alive()) {   // also while recalling or channelling
+        share_ally_positions();
+        if constexpr (constants::kTeamFightSharedAllies) remember_teammates();
+    }
     if (!turn_guard()) {
         if (cambc::self().is_alive()) match_data_.last_health = cambc::self().health();
         return;
@@ -49,6 +58,7 @@ void Bot::play_turn() {
     selector.add_state(&attack_state_instance, State::Attack);
     selector.add_state(&tribute_state_instance, State::Tribute);
     selector.add_state(&farm_state_instance, State::Farm);
+    decide_team_fight_call();
     combat_trace_turn_start();
     selector.select_and_execute(ctx, memory_);
     debug::report_fuel();

@@ -9,6 +9,8 @@ FightResult predict_duel_fast(const cambc::champion& enemy, const FightOptions& 
 FightResult predict_duel_full(const cambc::champion& enemy, const FightOptions& options = {});
 // The model's view of a duel between two visible champions (`ours` plays our side).
 DuelSetup duel_setup(const cambc::champion& ours, const cambc::champion& enemy, const FightOptions& options = {});
+// The model's view of one visible champion (live health, stats, shield, cooldowns).
+Fighter fighter_state(const cambc::champion& c);
 // Same, with any visible allied champion in our place.
 FightResult predict_duel(const cambc::champion& ours, const cambc::champion& enemy, bool full, const FightOptions& options);
 // Rough two-against-one: quick health check, else either ally winning the duel alone.

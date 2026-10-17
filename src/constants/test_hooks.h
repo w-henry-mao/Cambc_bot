@@ -31,3 +31,27 @@
 #ifndef PATH_CACHE_ENABLED
 #define PATH_CACHE_ENABLED true
 #endif
+#ifndef TEAM_FIGHT_TRACE
+#define TEAM_FIGHT_TRACE false
+#endif
+#ifndef TEAM_FIGHT_TEST_CALLER
+#define TEAM_FIGHT_TEST_CALLER false
+#endif
+// Test builds: draft exactly these champion_draft values in order (comma list), e.g. 1,2,5,6,8.
+#ifndef DRAFT_PICKS
+#define DRAFT_PICKS -1
+#endif
+// Test builds: the test caller re-estimates every N rounds (staggered by roster index).
+#ifndef TEAM_FIGHT_TEST_CALL_EVERY
+#define TEAM_FIGHT_TEST_CALL_EVERY 1
+#endif
+// Overrides for the fight-call lifetime and the shared-teammate limits (test builds compare).
+#ifndef TEAM_FIGHT_CALL_ROUNDS
+#define TEAM_FIGHT_CALL_ROUNDS 2
+#endif
+#ifndef TEAM_FIGHT_SHARED_RADIUS
+#define TEAM_FIGHT_SHARED_RADIUS 8
+#endif
+#ifndef ALLY_POSITION_MAX_AGE
+#define ALLY_POSITION_MAX_AGE 3
+#endif
