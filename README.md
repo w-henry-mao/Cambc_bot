@@ -213,6 +213,14 @@ and 64, so `sweep_team_header()` clears expired entries at the start of every ch
 normal matches and in 24 test-caller matches with unlimited fuel; it also fixes a wrap-around
 bug in the old 8-bit round stamp that let a fight call come back exactly 256 rounds later.
 
+## Enemy Gems
+
+`enemy_gems(enemy, match)` (`core/enemy_gems.h`): an enemy's carried gems are exact while it is
+visible (`champion::gem_count` works on enemies; 76/76 readings matched the enemy's own count in
+a self-play probe). Out of sight it returns the last reading and how many rounds old it is. It
+also gives the gem value of the camp group the enemy is fighting (a damaged camp within its
+reach), so `total()` is what it holds once it captures that group. Nothing calls it yet.
+
 ## Enemy Altar Locks
 
 An enemy altar lock blocks our tributes at that altar until three basic attacks break it (our own
