@@ -277,6 +277,21 @@ rescue 0.97 on the other maps: over the 6 monolith-type maps x 14, main 71/84, 0
 52/84, limit 6 46/84 (contest and contest_side still collapse). The seq model alone vs main:
 head-to-head 18/34, regular bots +7/game (p=0.58). Off.
 
+## Wards, Fight Calls, Early Retreat (tested, off)
+
+Rules: 1 active ward per champion, 1 charge recharging every round, no expiry, vision 6, placed
+within 2 tiles; wards cannot be attacked (the SDK attacks only units and altar locks). Fish
+re-places wards every 10-20 rounds per champion, mostly around the map centre.
+`WARD_PLAN` (`skills/wards.cpp`): each champion keeps its ward on the reachable tile nearest a goal
+and moves it once more than 10 tiles away (~120-140 wards a game). vs current main, head-to-head
+of 34 / regular bots (204 paired, margin per game):
+- centre 20/34, +6 (p=0.73); farm camp 17/34, -6 (p=0.74); toward the enemy spawn 18/34, -10 (p=0.50)
+- fight calls (`TEAM_FIGHT_TEST_CALLER`, every 3 rounds, shared radius 12) 15/34, -20 (p=0.44);
+  centre wards + calls 18/34, -26 (p=0.29)
+- `EARLY_RETREAT` (enemies at our farm camp outnumber us there: back off home) 13/34, -3 (p=0.86);
+  centre wards + early retreat 17/34, +14 (p=0.44)
+- top ladder, centre wards vs main, 50 paired games: -23/game (t=-0.80), 20 better / 13 worse.
+
 ## Capture Stayer, Fight Value Check, Camp Crowding (tested, off)
 
 vs v8: head-to-head of 34, then regular bots (204 paired, margin per game).
