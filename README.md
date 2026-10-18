@@ -239,6 +239,15 @@ new team(4), Boost, Nyx), traced v8 vs traced trip build.
 With trips on, the recall health threshold was swept (vs trips at 35%): 20% worse (-37/game,
 p=0.02); 25/30/40/45% no difference. Left at 35% (`RECALL_HP`).
 
+## Camp Reward Collector (main, efa48d8) and Shop Trips Together
+
+potionarcher's main changes (one champion collects camp rewards; wait beside respawning camps;
+safe recall fix) vs v8: head-to-head 23/34 (p=0.06), regular bots +75/game (p<0.001), top ladder
+49 paired games +106/game (t=3.41), 35 better / 9 worse. Merged with shop trips (this branch) vs
+main: head-to-head 20/34, regular bots +26/game (p=0.14); main vs v8+trips on the top ladder +34/game
+(t=1.15, n.s.). Both recover idle farming time, so their gains overlap. Merged vs main on the top
+ladder: pending.
+
 ## Capture Stayer, Fight Value Check, Camp Crowding (tested, off)
 
 vs v8: head-to-head of 34, then regular bots (204 paired, margin per game).
