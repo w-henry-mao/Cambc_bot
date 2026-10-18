@@ -360,10 +360,13 @@ Local `STATE_TRACE` (20 games on expanse, rows, ambush, elkring, pilgrimage vs o
 v5): every champion spends 50-64% of rounds walking in the farm state, ~30% at a camp, 6-11%
 carrying gems to an altar. A trip that reaches its camp walks 9.6 rounds for 10 rounds at the
 camp. Of farm-to-farm target changes, 34% are on arriving at a camp a teammate just cleared and
-38% are re-picks en route (mostly after a death or recall).
-- `COMMIT_TARGET` (keep the camp we walk to, and the leader keeps the team target, unless the new
-  one is worth K times as much): K=1.25 / 1.5 left switches unchanged (5.0 vs 5.1 per 100 farm
-  rounds), 19/20 vs 20/20 wins locally. Off.
+38% are re-picks en route.
+- 86% of followers' en-route switches follow a leader re-pick (64% the same round): the team
+  target is valued from the leader's tile, and 3 tiles of walking (0.93^3) outweighs the 1.25
+  hysteresis.
+- `COMMIT_TARGET` K (keep the camp we walk to; the leader keeps the team target, with K as its
+  hysteresis too): K=3 switches 4.4 per 100 farm rounds (5.1 before), 18/20 wins, gems 1012 vs
+  1025; K=100 3.3, 14/20, 951. Re-picking toward camps that come into reach helps. Off.
 - Draft with Varg (vs main; head-to-head of 34, regular bots 204 paired): Varg instead of Tavi
   13/34, -31/game (p=0.12); Varg first 12/34, -26/game (p=0.27). Not adopted.
 

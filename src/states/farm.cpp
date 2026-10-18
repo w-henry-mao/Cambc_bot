@@ -112,7 +112,8 @@ Pick best_camp(const MatchData& match, const cambc::distance_field& field, const
         if (current == i) kept = {i, *value};
         if (!best.group || *value > best.value) best = {i, *value};
     }
-    if (kept.group && best.value < constants::kSwitchFactor * kept.value) return kept;
+    const float factor = constants::kCommitTarget > 0 ? std::max(constants::kSwitchFactor, constants::kCommitTarget) : constants::kSwitchFactor;
+    if (kept.group && best.value < factor * kept.value) return kept;
     return best;
 }
 
