@@ -89,6 +89,16 @@
 #ifndef OPENING_CLOSEST_CAMP
 #define OPENING_CLOSEST_CAMP true
 #endif
+// One champion collects a camp's reward while the others move on (false: everyone at the camp
+// stands on it and the reward is split, the old behaviour, for A/B tests).
+#ifndef SINGLE_COLLECTOR
+#define SINGLE_COLLECTOR true
+#endif
+// While a camp group respawns, wait next to its spawn tiles rather than on them (false: walk onto
+// them, the old behaviour that can hold the group's respawn forever, for A/B tests).
+#ifndef WAIT_BESIDE_SPAWN
+#define WAIT_BESIDE_SPAWN true
+#endif
 // Each champion picks its own camp (false: the shared team target, for A/B tests).
 #ifndef PER_CHAMPION_CAMPS
 #define PER_CHAMPION_CAMPS false

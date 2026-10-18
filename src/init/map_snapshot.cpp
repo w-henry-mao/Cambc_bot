@@ -1,27 +1,36 @@
 #include <cambc.h>
+#include <utility>
 #include "../core/geometry.h"
 #include "../core/match_data.h"
 #include "stages.h"
+// What play needs from its first turn: the camp groups, the static blockers and the walk to the
+// altars. The rest of the setup is done at the end of turns (init/deferred_setup.h).
 bool stage_map_snapshot(MatchData& match_data) {
     match_data.camp_groups.clear();
-    for (const auto& group : cambc::map::camp_groups()) {
+    auto groups = cambc::map::camp_groups();
+    // Reserved and moved in: copying a group copies its camps and bitboards (~1.3k fuel each, and
+    // a growing vector copies every earlier group again).
+    match_data.camp_groups.reserve(groups.size());
+    for (auto& group : groups) {
         CachedCampGroup cached;
         cached.handle = group;
-        cached.view = group;
         cached.spawn_tiles = group.spawn_tiles();
         cached.spawn_positions = cached.spawn_tiles.positions();
         cached.centre = cached.spawn_positions[cached.spawn_positions.size() / 2];
         cached.gold_value = group.gold_value();
         cached.gem_value = group.gem_value();
+        cached.max_respawn = static_cast<std::uint32_t>(std::max(0, group.max_respawn_timer()));
         for (const auto& camp : group) {
             const auto stats = camp.base_stats();
             cached.design_health += stats.base_health;
             cached.design_strength += stats.base_strength;
         }
-        match_data.camp_groups.push_back(cached);
+        cached.view = std::move(group);
+        match_data.camp_groups.push_back(std::move(cached));
     }
     match_data.static_blockers = cambc::map::walls() | cambc::map::holes()
         | cambc::map::altars() | cambc::map::spawn_region(cambc::team::enemy);
+    match_data.map_width = cambc::map::width();
     // Altars never move, so the walk to the nearest one is computed once for the whole match.
     cambc::bitboard approach;
     approach.clear();
@@ -29,16 +38,5 @@ bool stage_map_snapshot(MatchData& match_data) {
     approach &= ~match_data.static_blockers;
     cambc::bitboard visited;
     match_data.altar_distance.compute(match_data.static_blockers, approach, visited);
-    // Likewise the walk home (safe recall prefers tiles closer to spawn), and the bush map, both as
-    // plain arrays for cheap lookups.
-    cambc::distance_field home;
-    home.compute(match_data.static_blockers, cambc::map::spawn_region(cambc::team::ally), visited);
-    match_data.home_walk = home.export_linear_buffer();
-    match_data.bush_tiles = cambc::map::bushes().export_linear_buffer();
-    match_data.map_width = cambc::map::width();
-    std::vector<std::uint8_t> grid(static_cast<std::size_t>(cambc::map::width()) * static_cast<std::size_t>(cambc::map::height()), 0);
-    for (int y = 0; y < cambc::map::height(); y += 2)
-        for (int x = 0; x < cambc::map::width(); x += 2) grid[static_cast<std::size_t>(y) * static_cast<std::size_t>(cambc::map::width()) + static_cast<std::size_t>(x)] = 1;
-    match_data.sample_grid.import_linear_buffer(grid);
     return true;
 }

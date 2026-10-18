@@ -1,4 +1,5 @@
 #include "world.h"
+#include "../constants/state_constants.h"
 void update_world(MatchData& match) {
     auto& me = cambc::self();
     const float health = me.health();
@@ -16,6 +17,12 @@ void update_world(MatchData& match) {
             group.respawn_ready_round = round + static_cast<std::uint32_t>(respawning->timer);
         else
             group.respawn_ready_round = 0;
+        // Left to a teammate: live state replaces our guess once the group is captured or back. A
+        // reward still waiting well after the capture should have finished was never collected.
+        if (group.left_to_teammate_round
+            && (!group.reward_waiting
+                || round > group.left_to_teammate_round + static_cast<std::uint32_t>(cambc::constants::capture_time) + constants::kCollectorGraceRounds))
+            group.left_to_teammate_round = 0;
     }
 }
 int altar_walk(const MatchData& match, cambc::vec2 tile) { return match.altar_distance.get(tile); }

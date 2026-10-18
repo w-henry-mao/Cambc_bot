@@ -50,12 +50,14 @@ RecallPlan plan_safe_recall(const MatchData& match) {
         }
     if (!plan.danger.is_set(here)) { plan.safe_here = true; return plan; }
 
-    // Safe tiles we can walk to within kRecallSearchSteps.
+    // Safe tiles we can walk to within kRecallSearchSteps. The search's `visited` output depends on
+    // what the field's freshly allocated buffer held, so it is not used: candidates are the safe
+    // tiles in the square we could reach, kept only if the step distance below reaches them.
     const auto blocked = blocked_tiles();
     bc::distance_field field;
     bc::bitboard visited;
     field.compute(blocked, tiles_around(here, 0), visited, static_cast<std::uint16_t>(constants::kRecallSearchSteps));
-    auto candidates = visited & ~plan.danger & ~blocked;
+    auto candidates = tiles_around(here, constants::kRecallSearchSteps) & ~plan.danger & ~blocked;
     if (candidates.is_empty()) return plan;
 
     // Tiebreak inputs: visible teammates, and visible enemies other than the closest one.
@@ -76,30 +78,45 @@ RecallPlan plan_safe_recall(const MatchData& match) {
     steps.resize(bc::distance_field::linear_buffer_size() / sizeof(std::uint16_t));
     field.export_linear_buffer(steps);
     const std::size_t width = static_cast<std::size_t>(match.map_width);
-    const bool have_static = width > 0 && !match.home_walk.empty();
+    // Built at the end of turns (init/deferred_setup.h); until then tiles score without it.
+    const bool have_home = match.home_ready;
     // Scored: every safe bush tile, and plain safe tiles on a 2x2 grid (neighbouring tiles score
-    // almost alike; each scored tile costs ~300 fuel).
-    const auto tiles = (candidates & (match.sample_grid | bc::map::bushes())).positions();
-    if (tiles.empty()) { plan.spot = candidates.positions().front(); return plan; }
+    // almost alike; each scored tile costs ~300 fuel). Kept as two lists, so whether a tile is a
+    // bush needs no per-tile lookup.
+    auto steps_to = [&](bc::vec2 tile) { return static_cast<int>(steps[static_cast<std::size_t>(tile.y) * width + static_cast<std::size_t>(tile.x)]); };
+    const auto bushes = bc::map::bushes();
+    const auto bush_spots = (candidates & bushes).positions();
+    std::vector<bc::vec2> plain_spots;
+    for (const auto tile : (candidates & ~bushes).positions())
+        if (tile.x % 2 == 0 && tile.y % 2 == 0) plain_spots.push_back(tile);
+    if (bush_spots.empty() && plain_spots.empty()) {
+        for (const auto tile : candidates.positions())
+            if (steps_to(tile) <= constants::kRecallSearchSteps && (!plan.spot || steps_to(tile) < steps_to(*plan.spot))) plan.spot = tile;
+        return plan;
+    }
     // Pass 1: the nearest safe tile. Pass 2: score the ones within kRecallExtraSteps of it.
     int nearest = 1 << 20;
-    for (const auto tile : tiles) nearest = std::min<int>(nearest, steps[static_cast<std::size_t>(tile.y) * width + static_cast<std::size_t>(tile.x)]);
+    for (const auto tile : bush_spots) nearest = std::min(nearest, steps_to(tile));
+    for (const auto tile : plain_spots) nearest = std::min(nearest, steps_to(tile));
+    if (nearest > constants::kRecallSearchSteps) return plan;   // none reachable in range
     const int limit = nearest + constants::kRecallExtraSteps;
     auto cheb = [](int ax, int ay, int bx, int by) { const int dx = ax > bx ? ax - bx : bx - ax, dy = ay > by ? ay - by : by - ay; return dx > dy ? dx : dy; };
     float best = 0;
-    for (const auto tile : tiles) {
+    auto score = [&](bc::vec2 tile, bool bush) {
         const auto idx = static_cast<std::size_t>(tile.y) * width + static_cast<std::size_t>(tile.x);
         SpotFeatures f;
         f.steps = steps[idx];
-        if (f.steps > limit) continue;
-        const auto home = have_static ? match.home_walk[idx] : bc::distance_field::unreachable;
+        if (f.steps > limit) return;
+        const auto home = have_home ? match.home_distance.get(tile) : bc::distance_field::unreachable;
         f.home = home == bc::distance_field::unreachable ? 200 : home;
         for (int i = 0; i < nf; ++i) { const int d = cheb(tile.x, tile.y, fx[i], fy[i]); if (f.friend_dist < 0 || d < f.friend_dist) f.friend_dist = d; }
         for (int i = 0; i < ne; ++i) { const int d = cheb(tile.x, tile.y, ex[i], ey[i]); if (f.enemy_dist < 0 || d < f.enemy_dist) f.enemy_dist = d; }
-        f.bush = have_static && match.bush_tiles[idx] != 0;
+        f.bush = bush;
         const float s = spot_score(f, w);
         if (!plan.spot || s > best) { plan.spot = tile; best = s; }
-    }
+    };
+    for (const auto tile : bush_spots) score(tile, true);
+    for (const auto tile : plain_spots) score(tile, false);
     return plan;
 }
 
