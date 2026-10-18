@@ -13,6 +13,14 @@ constexpr int kCarrierAvoidGems = CARRIER_AVOID_GEMS;
 // Remember enemy altar locks we have seen; bank at an altar not known to be locked when there is
 // one, and break locks only when every altar is known locked. A sighting is forgotten after
 // kAltarLockMemoryRounds or when we see the altar without a lock (within kAltarClearDistance).
+// Recall to shop when holding at least this much gold (0 = off), unless an enemy champion is in
+// view within kShopRecallEnemyDist, something hit us since last turn, or our live farm camp is close.
+constexpr std::uint32_t kShopRecallGold = SHOP_RECALL_GOLD;
+constexpr int kShopRecallEnemyDist = 8;
+constexpr int kShopRecallCampDist = 4;
+// One champion captures a cleared group (reward waiting), chosen among us and visible allies
+// within kHelpRadius + 2 of it by CAPTURE_STAYER's rule; the others pick another camp.
+constexpr int kCaptureStayer = CAPTURE_STAYER;
 constexpr bool kAltarMemory = ALTAR_MEMORY;
 constexpr std::uint32_t kAltarLockMemoryRounds = 200;
 constexpr int kAltarClearDistance = 5;

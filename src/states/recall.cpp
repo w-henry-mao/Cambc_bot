@@ -29,6 +29,25 @@ int RecallState::score(const TurnContext& ctx) {
                 if (in_view(e) && e.position().chebyshev_distance(me.position()) <= static_cast<std::uint32_t>(constants::kRecallNearEnemyDist))
                     return constants::kRecallScore;
     }
+    // Shopping trip: enough gold for the next purchases, and nothing is fighting us.
+    if constexpr (constants::kShopRecallGold > 0) {
+        // kShopRecallGold 1: as soon as the next emblem in our buy order is affordable.
+        const unsigned need = constants::kShopRecallGold == 1 ? gold_for_next_emblem(me) : constants::kShopRecallGold;
+        if (need > 0 && me.gold_count() >= need && !ctx.match_data->hit_since_last_turn) {
+            bool blocked = false;
+            for (const auto& e : roster_enemies())
+                if (in_view(e) && e.position().chebyshev_distance(me.position()) <= static_cast<std::uint32_t>(constants::kShopRecallEnemyDist))
+                    blocked = true;
+            const auto& match = *ctx.match_data;
+            if (!blocked && match.farm_target) {
+                const auto& g = match.camp_groups[static_cast<std::size_t>(*match.farm_target)];
+                if (g.respawn_ready_round <= cambc::round_number()
+                    && g.centre.chebyshev_distance(me.position()) <= static_cast<std::uint32_t>(constants::kShopRecallCampDist))
+                    blocked = true;   // our camp is up and we are at it
+            }
+            if (!blocked) return constants::kRecallScore;
+        }
+    }
     // Hurt with nothing to farm: go heal instead of standing around.
     if (me.health() < me.max_health() * constants::kIdleRecallHpFraction && !farm_target(*ctx.match_data))
         return constants::kRecallScore;

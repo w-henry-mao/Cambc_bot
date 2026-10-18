@@ -14,13 +14,16 @@
 //   11 Power, Durability health                        (Fish without Bruiser)
 //   12 Durability health, then Bruiser health shards   (our build plus one emblem)
 //   13 plan 9 with Willow on focus (heals); the default
-inline bool shop_emblem_plan(cambc::champion& me) {
+//   14 plan 13 with a Jungle emblem (main stat) first: 30% less damage from camps
+struct ShopStep { cambc::item_type shard, emblem; };
+struct ShopPlan { ShopStep steps[4]; int n_steps = 0; cambc::item_type main = cambc::item_type::power_shard_of_strength; };
+inline ShopPlan shop_plan_for(cambc::champion& me) {
     using it = cambc::item_type;
     using ct = cambc::champion_type;
     const auto type = me.champion_name();
     const bool focus = type == ct::cassi || type == ct::stellar || type == ct::prism || type == ct::ren
-        || (SHOP_PLAN == 13 && type == ct::willow);
-    struct Step { it shard, emblem; };
+        || ((SHOP_PLAN == 13 || SHOP_PLAN == 14) && type == ct::willow);
+    using Step = ShopStep;
     const Step power = focus ? Step{it::power_shard_of_focus, it::power_emblem_of_focus}
                              : Step{it::power_shard_of_strength, it::power_emblem_of_strength};
     const Step jungle = focus ? Step{it::jungle_shard_of_focus, it::jungle_emblem_of_focus}
@@ -29,28 +32,46 @@ inline bool shop_emblem_plan(cambc::champion& me) {
                                 : Step{it::durability_shard_of_strength, it::durability_emblem_of_strength};
     const Step dur_hp{it::durability_shard_of_health, it::durability_emblem_of_health};
     const Step bru_hp{it::bruiser_shard_of_health, it::bruiser_emblem_of_health};
-    Step steps[4];
-    int n_steps = 0;
-    it main = power.shard;
+    ShopPlan plan;
+    plan.main = power.shard;
+    auto& steps = plan.steps;
     switch (SHOP_PLAN) {
-        case 10: steps[0] = jungle; steps[1] = power; steps[2] = dur_main; steps[3] = bru_hp; n_steps = 4; break;
-        case 11: steps[0] = power; steps[1] = dur_hp; n_steps = 2; break;
-        case 12: steps[0] = dur_hp; n_steps = 1; main = bru_hp.shard; break;
-        default: steps[0] = power; steps[1] = dur_hp; steps[2] = bru_hp; n_steps = 3; break;
+        case 10: steps[0] = jungle; steps[1] = power; steps[2] = dur_main; steps[3] = bru_hp; plan.n_steps = 4; break;
+        case 11: steps[0] = power; steps[1] = dur_hp; plan.n_steps = 2; break;
+        case 12: steps[0] = dur_hp; plan.n_steps = 1; plan.main = bru_hp.shard; break;
+        case 14: steps[0] = jungle; steps[1] = power; steps[2] = dur_hp; steps[3] = bru_hp; plan.n_steps = 4; break;
+        default: steps[0] = power; steps[1] = dur_hp; steps[2] = bru_hp; plan.n_steps = 3; break;
     }
+    return plan;
+}
+inline bool shop_emblem_plan(cambc::champion& me) {
+    const auto plan = shop_plan_for(me);
     bool bought = false;
     const auto items = me.item_count();
-    for (int i = 0; i < n_steps; ++i) {
-        if (items[steps[i].emblem] != 0) continue;
-        const unsigned need = 5 - std::min(4u, static_cast<unsigned>(items[steps[i].shard]));
-        const unsigned n = std::min(need, me.gold_count() / steps[i].shard.cost());
-        if (n && me.can_buy(steps[i].shard, n)) { me.buy(steps[i].shard, n); bought = true; }
+    for (int i = 0; i < plan.n_steps; ++i) {
+        const auto& step = plan.steps[i];
+        if (items[step.emblem] != 0) continue;
+        const unsigned need = 5 - std::min(4u, static_cast<unsigned>(items[step.shard]));
+        const unsigned n = std::min(need, me.gold_count() / step.shard.cost());
+        if (n && me.can_buy(step.shard, n)) { me.buy(step.shard, n); bought = true; }
         if (n < need) return bought;   // finish this emblem before the next step
     }
-    const unsigned count = me.gold_count() / main.cost();
-    if (!count || !me.can_buy(main, count)) return bought;
-    me.buy(main, count);
+    const unsigned count = me.gold_count() / plan.main.cost();
+    if (!count || !me.can_buy(plan.main, count)) return bought;
+    me.buy(plan.main, count);
     return true;
+}
+// Gold that completes the next emblem in our buy order (plans 9+; 0 for other plans).
+inline unsigned gold_for_next_emblem(cambc::champion& me) {
+    if constexpr (SHOP_PLAN < 9) return 0;
+    const auto plan = shop_plan_for(me);
+    const auto items = me.item_count();
+    for (int i = 0; i < plan.n_steps; ++i) {
+        const auto& step = plan.steps[i];
+        if (items[step.emblem] != 0) continue;
+        return (5 - std::min(4u, static_cast<unsigned>(items[step.shard]))) * step.shard.cost();
+    }
+    return (5 - std::min(4u, static_cast<unsigned>(items[plan.main]))) * plan.main.cost();
 }
 
 inline bool shop_pre_step() {

@@ -166,6 +166,34 @@ int collect_mates(cambc::vec2 (&mates)[8]) {
     return n;
 }
 
+// Capture stayer (constants::kCaptureStayer): whether we are the one to capture `group`, chosen
+// among us and visible allies near it (ties: earlier roster position).
+bool i_am_stayer(const CachedCampGroup& group) {
+    auto& me = cambc::self();
+    const auto radius = static_cast<std::uint32_t>(constants::kHelpRadius + 2);
+    auto key = [&](const cambc::champion& c) -> float {
+        switch (constants::kCaptureStayer) {
+            case 1: return static_cast<float>(c.position().chebyshev_distance(group.centre));
+            case 2: return c.health() / c.max_health();
+            default: return c.strength() + constants::kAbilityDpsPerFocus * c.focus();
+        }
+    };
+    const float mine = key(me);
+    const auto& allies = roster_allies();
+    for (int i = 0; i < static_cast<int>(allies.size()); ++i) {
+        const auto& a = allies[static_cast<std::size_t>(i)];
+        if (a == me) break;   // allies after us lose ties
+        if (!in_view(a) || a.position().chebyshev_distance(group.centre) > radius) continue;
+        if (key(a) <= mine) return false;
+    }
+    for (std::size_t i = 0; i < allies.size(); ++i) {
+        const auto& a = allies[i];
+        if (a == me || !in_view(a) || a.position().chebyshev_distance(group.centre) > radius) continue;
+        if (key(a) < mine) return false;
+    }
+    return true;
+}
+
 // Per-champion choice (constants::kPerChampionCamps): our own best group, counting teammates
 // near each group as helpers plus a bonus each. Keeps `current` unless another is clearly better.
 std::optional<int> own_best_camp(const MatchData& match, const cambc::distance_field& field, float dps, std::optional<int> current) {
@@ -223,6 +251,19 @@ std::optional<int> farm_target(MatchData& match) {
     // A property of the map: no gem group even one champion at full health could take within the
     // normal limit (normal maps have wolves, elks or gem clusters; stampede and contest only monoliths).
     const bool starved = gem_starved(match, Team{dps, 1}, me.max_health());
+    // Capture stayer: a cleared group of ours waiting for capture is kept only by its stayer;
+    // everyone else (and the team target) moves on.
+    std::optional<int> capture_exclude;
+    if constexpr (constants::kCaptureStayer > 0) {
+        if (const auto cur = match.farm_target) {
+            const auto& g = match.camp_groups[static_cast<std::size_t>(*cur)];
+            if (g.reward_waiting) {
+                if (i_am_stayer(g) && g.centre.chebyshev_distance(me.position()) <= static_cast<std::uint32_t>(constants::kHelpRadius + 2))
+                    return match.farm_target;
+                capture_exclude = cur;
+            }
+        }
+    }
     std::optional<int> team_target;
     int target_size = team_size;   // champions sharing the target we follow
     std::array<int, 2> sizes{0, 0};
@@ -249,7 +290,8 @@ std::optional<int> farm_target(MatchData& match) {
             team_target = g2 - 1;
         }
     } else if (i_lead()) {
-        team_target = best_camp(match, field, Team{dps * static_cast<float>(team_size), team_size}, match.farm_target, starved).group;
+        team_target = best_camp(match, field, Team{dps * static_cast<float>(team_size), team_size}, match.farm_target, starved,
+                                capture_exclude).group;
         write_team_target(team_target);
     } else {
         team_target = read_team_target(match);
@@ -282,7 +324,8 @@ std::optional<int> farm_target(MatchData& match) {
     }
     cambc::vec2 mates[8];
     const int n_mates = constants::kRealBackup ? collect_mates(mates) : 0;
-    const auto solo = best_camp(match, field, Team{dps, 1}, match.farm_target, starved, std::nullopt, constants::kSoloDamageShare,
+    if (capture_exclude && team_target == capture_exclude) team_target.reset();
+    const auto solo = best_camp(match, field, Team{dps, 1}, match.farm_target, starved, capture_exclude, constants::kSoloDamageShare,
                                 constants::kRealBackup ? mates : nullptr, n_mates);
     float team_value = 0;
     if (team_target) {

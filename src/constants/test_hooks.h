@@ -141,6 +141,15 @@
 #ifndef ALTAR_MEMORY
 #define ALTAR_MEMORY false
 #endif
+// Recall to shop once we hold this much gold (0 = off, 1 = enough for the next emblem; states/recall.cpp).
+#ifndef SHOP_RECALL_GOLD
+#define SHOP_RECALL_GOLD 0
+#endif
+// Capture stayer (states/farm.cpp): one champion captures a cleared camp group while the rest move
+// on. 0 = off, 1 = closest to the group, 2 = lowest health fraction, 3 = lowest damage.
+#ifndef CAPTURE_STAYER
+#define CAPTURE_STAYER 0
+#endif
 // Idle recall threshold (constants/state_constants.h kIdleRecallHpFraction).
 #ifndef IDLE_RECALL_HP
 #define IDLE_RECALL_HP 1.0f
