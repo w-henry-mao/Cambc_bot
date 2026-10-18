@@ -91,11 +91,13 @@ std::optional<float> camp_value(const CachedCampGroup& group, int walk, const Te
     if (respawn_ready(group) > round + static_cast<std::uint32_t>(walk)) return std::nullopt;   // still respawning on arrival
     // Gold-only groups on the enemy's side (constants::kEnemySidePlan): little to gain, and the
     // enemy fights there next to its spawn. 1: closer to their spawn than ours; 2: within
-    // kEnemySideRadius of their spawn.
+    // kEnemySideRadius of their spawn; 3: as 2, except on gem-starved maps (contest, stampede),
+    // where gold is what makes the monoliths killable.
     if constexpr (constants::kEnemySidePlan > 0) {
         if (group.gem_value == 0) {
             if (constants::kEnemySidePlan == 1 && group.enemy_spawn_dist < group.own_spawn_dist) return std::nullopt;
             if (constants::kEnemySidePlan == 2 && group.enemy_spawn_dist <= constants::kEnemySideRadius) return std::nullopt;
+            if (constants::kEnemySidePlan == 3 && !g_starved_map && group.enemy_spawn_dist <= constants::kEnemySideRadius) return std::nullopt;
         }
     }
     int kill = 0;

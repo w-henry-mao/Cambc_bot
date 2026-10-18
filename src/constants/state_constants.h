@@ -64,7 +64,8 @@ constexpr float kGoldWeight = GOLD_WEIGHT;         // 0.25 unless a test build o
 // 2 by round, 3 until our planned emblems are bought.
 constexpr int kGoldDecayPlan = GOLD_DECAY_PLAN;
 // Skip gold-only groups on the enemy's side (A/B test, states/farm.cpp camp_value): 0 off,
-// 1 closer to the enemy spawn than ours, 2 within kEnemySideRadius of the enemy spawn.
+// 1 closer to the enemy spawn than ours, 2 within kEnemySideRadius of the enemy spawn, 3 as 2 except
+// on gem-starved maps.
 constexpr int kEnemySidePlan = ENEMY_SIDE_PLAN;
 // No-gain fights (A/B test, states/attack.cpp score): don't start a fight with an enemy carrying no
 // gems that is 1: within kNoGainSpawnRadius of its spawn, 2: closer to its spawn than ours.
