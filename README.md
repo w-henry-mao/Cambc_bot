@@ -292,6 +292,14 @@ of 34 / regular bots (204 paired, margin per game):
   centre wards + early retreat 17/34, +14 (p=0.44)
 - top ladder, centre wards vs main, 50 paired games: -23/game (t=-0.80), 20 better / 13 worse.
 
+## Map Classes: Per-Map Effects of Tested Switches
+
+For every switch tested so far, the gem-margin change per map (12 paired games: 6 opponents x 2
+sides; noise about +/-90 per map). Large effects sit on one or two maps each (mostly stampede and
+contest, whose long games amplify everything) and do not line up with a map feature across maps;
+the one feature-shaped split (monolith-only maps) failed on held-out maps. Shop trips were the one
+switch positive on nearly every map (14 of 17). No per-class rule adopted.
+
 ## Capture Stayer, Fight Value Check, Camp Crowding (tested, off)
 
 vs v8: head-to-head of 34, then regular bots (204 paired, margin per game).
