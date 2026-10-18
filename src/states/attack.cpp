@@ -114,6 +114,27 @@ Targets pick_targets(int radius, const MatchData* match) {
 // Fight back whenever an enemy champion is within reach: the weakest one first. While a teammate's
 // fight call is live (combat/sdk_team_fight.h, brain/team_fight_call.cpp), the called enemy comes
 // first whenever it is within reach, and with nobody in reach we walk to it.
+namespace {
+// Fight value check (constants::kFightEv): is the fight around us worth taking?
+bool fight_worth_it() {
+    auto& me = cambc::self();
+    const auto call = estimate_team_fight_here();
+    if (call.enemies == 0) return true;
+    const float p = call.estimate.call == TeamCall::Fight ? constants::kFightEvWinFight
+                  : call.estimate.call == TeamCall::Avoid ? constants::kFightEvWinAvoid : constants::kFightEvWinUnsure;
+    const auto here = me.position();
+    const auto r = static_cast<std::uint32_t>(constants::kTeamFightRadius);
+    float ours = static_cast<float>(me.gem_count()), theirs = 0;
+    for (const auto& a : roster_allies())
+        if (!(a == me) && in_view(a) && a.position().chebyshev_distance(here) <= r) ours += static_cast<float>(a.gem_count());
+    for (const auto& e : roster_enemies())
+        if (in_view(e) && e.position().chebyshev_distance(here) <= r) theirs += static_cast<float>(e.gem_count());
+    const float kill = constants::kGoldWeight * static_cast<float>(cambc::constants::kill_gold);
+    return p * (theirs + kill) > (1.0f - p) * (2.0f * ours + kill);
+}
+std::uint32_t last_attack_round = 0;   // last round we were in the attack state
+}
+
 int AttackState::score(const TurnContext& ctx) {
     // Outnumbered nearby: leave the fight (farm, tribute or recall take over).
     if constexpr (constants::kAvoidOutnumbered) {
@@ -130,6 +151,11 @@ int AttackState::score(const TurnContext& ctx) {
     if constexpr (constants::kCarrierAvoidGems > 0)
         if (cambc::self().gem_count() >= static_cast<std::uint32_t>(constants::kCarrierAvoidGems)) return 0;
     const auto t = pick_targets(reach(), ctx.match_data);
+    if constexpr (constants::kFightEv > 0) {
+        const auto round = cambc::round_number();
+        const bool in_progress = last_attack_round + 1 >= round && last_attack_round != 0;
+        if ((t.attack || t.chase) && (constants::kFightEv == 2 || !in_progress) && !fight_worth_it()) return 0;
+    }
     if (t.attack || t.waiting || t.chase) return constants::kAttackScore;
     if (team_fight_called()) return constants::kTeamFightCallScore;
     return 0;
@@ -142,6 +168,7 @@ void walk_to(vec2 spot) { move_towards_closest(tiles_around(spot, cambc::self().
 
 StateResult AttackState::execute(TurnContext& ctx, BotMemory& memory) {
     auto& me = cambc::self();
+    if constexpr (constants::kFightEv > 0) last_attack_round = cambc::round_number();
     const int r = reach();
     const auto targets = pick_targets(r, ctx.match_data);
     const auto* target = targets.attack;

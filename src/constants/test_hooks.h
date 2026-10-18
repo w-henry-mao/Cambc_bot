@@ -150,6 +150,14 @@
 #ifndef CAPTURE_STAYER
 #define CAPTURE_STAYER 0
 #endif
+// Fight value check (states/attack.cpp): 0 = off, 1 = before starting a fight, 2 = every turn.
+#ifndef FIGHT_EV
+#define FIGHT_EV 0
+#endif
+// Recall below this fraction of max health (constants/state_constants.h kRecallHpFraction).
+#ifndef RECALL_HP
+#define RECALL_HP 0.35f
+#endif
 // Idle recall threshold (constants/state_constants.h kIdleRecallHpFraction).
 #ifndef IDLE_RECALL_HP
 #define IDLE_RECALL_HP 1.0f

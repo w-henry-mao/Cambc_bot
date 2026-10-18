@@ -3,7 +3,7 @@
 #include "test_hooks.h"
 namespace constants {
 // Recall below this fraction of max health (only once nothing is hitting us).
-constexpr float kRecallHpFraction = 0.35f;
+constexpr float kRecallHpFraction = RECALL_HP;   // 0.35 unless a test build overrides
 // Recall below this fraction instead when an enemy champion is in view within kRecallNearEnemyDist
 // (no effect at or below kRecallHpFraction).
 constexpr float kRecallHpNearEnemy = RECALL_HP_NEAR_ENEMY;
@@ -21,6 +21,12 @@ constexpr int kShopRecallCampDist = 4;
 // One champion captures a cleared group (reward waiting), chosen among us and visible allies
 // within kHelpRadius + 2 of it by CAPTURE_STAYER's rule; the others pick another camp.
 constexpr int kCaptureStayer = CAPTURE_STAYER;
+// Fight value check: fight only if P(win) x (enemy gems carried + kill value) exceeds
+// P(lose) x (2 x our gems carried + death cost), gems counted within kTeamFightRadius, kill value =
+// death cost = kill gold x kGoldWeight. P(win) per team-fight call, from its measured accuracy
+// (README, Team Fights: we lost fewer in 73-79% of Fight, ~55% of Unsure, ~30% of Avoid calls).
+constexpr int kFightEv = FIGHT_EV;
+constexpr float kFightEvWinFight = 0.75f, kFightEvWinUnsure = 0.55f, kFightEvWinAvoid = 0.30f;
 constexpr bool kAltarMemory = ALTAR_MEMORY;
 constexpr std::uint32_t kAltarLockMemoryRounds = 200;
 constexpr int kAltarClearDistance = 5;
