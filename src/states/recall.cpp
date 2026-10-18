@@ -49,7 +49,17 @@ bool shop_trip_due(const TurnContext& ctx) {
 int RecallState::score(const TurnContext& ctx) {
     auto& me = cambc::self();
     if (on_spawn()) return me.health() < me.max_health() ? constants::kRecallScore : 0;
-    if (me.health() < me.max_health() * constants::kRecallHpFraction) return constants::kRecallScore;
+    if (me.health() < me.max_health() * constants::kRecallHpFraction) {
+        // Finish a kill first: an enemy in reach is nearly dead and lower than us.
+        if constexpr (constants::kFinishKill) {
+            const float mine = me.health() / me.max_health();
+            for (const auto& e : roster_enemies())
+                if (in_view(e) && e.position().chebyshev_distance(me.position()) <= static_cast<std::uint32_t>(me.attack_range())
+                    && e.health() / e.max_health() < constants::kFinishKillBelow && e.health() / e.max_health() < mine)
+                    return 0;
+        }
+        return constants::kRecallScore;
+    }
     // With an enemy champion close, recall earlier: the walk out of reach costs health.
     if constexpr (constants::kRecallHpNearEnemy > constants::kRecallHpFraction) {
         if (me.health() < me.max_health() * constants::kRecallHpNearEnemy)

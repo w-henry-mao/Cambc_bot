@@ -68,6 +68,24 @@ struct Targets {
     CampFight attack_camp;                 // the attack target's camp fight, if any
     std::optional<CampFight> waiting;
 };
+// Whether enemy `e` is a better target than `cur` (null: anything is). Default: less health.
+// constants::kFocusFire: more of our champions near it first (so a fight converges on one
+// enemy), then the lower health fraction.
+bool better_target(const cambc::champion& e, const cambc::champion* cur) {
+    if (!cur) return true;
+    if constexpr (constants::kFocusFire) {
+        auto near_us = [](const cambc::champion& x) {
+            int n = 0;
+            for (const auto& a : roster_allies())
+                if (in_view(a) && a.position().chebyshev_distance(x.position()) <= 4) ++n;
+            return n;
+        };
+        const int ne = near_us(e), nc = near_us(*cur);
+        if (ne != nc) return ne > nc;
+        return e.health() / e.max_health() < cur->health() / cur->max_health();
+    }
+    return e.health() < cur->health();
+}
 Targets pick_targets(int radius, const MatchData* match) {
     Targets t;
     const auto me = cambc::self().position();
@@ -80,10 +98,10 @@ Targets pick_targets(int radius, const MatchData* match) {
             const bool camp_low = cf.group_left <= constants::kWaitCampHealthFraction;
             const bool not_closest = distance(me, cf.camp) > cf.enemy_dist;
             if (cf.fighting && !camp_low && !not_closest) { t.waiting = cf; continue; }
-            if (!t.attack || e.health() < t.attack->health()) { t.attack = &e; t.attack_camp = camp_low ? CampFight{} : cf; }
+            if (better_target(e, t.attack)) { t.attack = &e; t.attack_camp = camp_low ? CampFight{} : cf; }
             continue;
         }
-        if (!t.attack || e.health() < t.attack->health()) t.attack = &e;
+        if (better_target(e, t.attack)) t.attack = &e;
     }
     if constexpr (constants::kPursuePlan >= 1) {
         // A recalling or tributing enemy in reach comes first: our hit cancels a recall, and a
@@ -229,9 +247,13 @@ StateResult AttackState::execute(TurnContext& ctx, BotMemory& memory) {
         return StateResult::Continue;
     }
     if (!target) return StateResult::Done;
-    cast_support();
-    cast_at(*target);
-    if (!attack_with_reset(*target) && me.can_move() && target->is_visible()) {
+    const bool supported = cast_support();
+    const bool cast = cast_at(*target);
+    bool hit = attack_with_reset(*target);
+    bool walked = false;
+    [[maybe_unused]] const float target_hp_before = target->health() / std::max(1.0f, target->max_health());
+    if (!hit && me.can_move() && target->is_visible()) {
+        walked = true;
         // In ability range but not attack range: close in, then attack if we now can. Walk toward
         // the free tiles within attack range of the target: its own tile is occupied, so
         // move_towards(target position) never moves.
@@ -241,7 +263,23 @@ StateResult AttackState::execute(TurnContext& ctx, BotMemory& memory) {
         if (targets.attack_camp.fighting) goals &= ~tiles_around(targets.attack_camp.camp, targets.attack_camp.enemy_dist);
         if constexpr ((constants::kDashPlan & 1) != 0) dash_towards(goals);
         if (!goals.is_set(me.position())) move_towards_closest(goals);
-        if (target->is_visible() && target->health() > 0) attack_with_reset(*target);
+        if (target->is_visible() && target->health() > 0) hit = attack_with_reset(*target);
+    }
+    if constexpr (FIGHT_TRACE) {
+        // FT round me target target_hp% my_hp% dist allies<=5 enemies<=8 support cast hit walked
+        const auto here = me.position();
+        int allies = 0, enemies = 0;
+        for (const auto& a : roster_allies())
+            if (!(a == me) && in_view(a) && a.position().chebyshev_distance(here) <= 5) ++allies;
+        for (const auto& e : roster_enemies())
+            if (in_view(e) && e.position().chebyshev_distance(here) <= 8) ++enemies;
+        const bool tv = target->is_visible();
+        std::cout << "FT " << cambc::round_number() << ' ' << cambc::to_string(me.champion_name()) << ' '
+                  << (tv ? cambc::to_string(target->champion_name()) : std::string("?")) << ' '
+                  << (tv ? static_cast<int>(100 * target->health() / std::max(1.0f, target->max_health())) : -1) << ' '
+                  << static_cast<int>(100 * me.health() / me.max_health()) << ' '
+                  << (tv ? distance(target->position(), here) : -1) << ' ' << allies << ' ' << enemies << ' '
+                  << supported << cast << hit << walked << '\n';
     }
     return StateResult::Continue;
 }

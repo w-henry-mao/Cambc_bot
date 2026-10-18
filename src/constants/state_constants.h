@@ -33,6 +33,11 @@ constexpr int kCampCrowdRounds = CAMP_CROWD_ROUNDS;   // champions per camp by s
 constexpr int kWardPlan = WARD_PLAN;
 // Early retreat: enemies seen within kEarlyRetreatRadius of our farm camp outnumber us there.
 constexpr bool kEarlyRetreat = EARLY_RETREAT;
+// Fight execution: target the enemy most of us are near (then lowest health fraction); at recall
+// health, keep attacking an enemy in attack range below kFinishKillBelow health and below ours.
+constexpr bool kFocusFire = FOCUS_FIRE;
+constexpr bool kFinishKill = FINISH_KILL;
+constexpr float kFinishKillBelow = 0.25f;
 constexpr int kEarlyRetreatRadius = 8;
 constexpr int kWardReplaceDist = 10;
 constexpr int kWardAheadDist = 8;

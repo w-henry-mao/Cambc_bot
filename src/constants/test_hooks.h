@@ -198,6 +198,17 @@
 #ifndef EARLY_RETREAT
 #define EARLY_RETREAT false
 #endif
+// Test builds: per-turn fight log in the attack state (states/attack.cpp).
+#ifndef FIGHT_TRACE
+#define FIGHT_TRACE false
+#endif
+// Fight execution tests: focus fire (states/attack.cpp), finish a kill before recalling (recall.cpp).
+#ifndef FOCUS_FIRE
+#define FOCUS_FIRE false
+#endif
+#ifndef FINISH_KILL
+#define FINISH_KILL false
+#endif
 // Idle recall threshold (constants/state_constants.h kIdleRecallHpFraction).
 #ifndef IDLE_RECALL_HP
 #define IDLE_RECALL_HP 1.0f
