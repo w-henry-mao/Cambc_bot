@@ -249,6 +249,10 @@ main: head-to-head 20/34, regular bots +26/game (p=0.14); main vs v8+trips on th
 ladder (50 paired games): -31/game (t=-1.26, n.s.), 19 better / 28 worse. So shop trips are off by
 default again (`SHOP_RECALL_GOLD` 0): this branch plays exactly like main.
 
+468ed80 (potionarcher: recall to shop for the next emblem, `SHOP_RECALL`, on; fuel spike cuts) vs
+efa48d8: head-to-head 18/34, regular bots +22/game (p=0.28), top ladder 50 paired games -4/game
+(t=-0.20), 23 better / 21 worse. No difference; vs v8 on the top ladder +103/game (t=3.57). Live as v17.
+
 ## Capture Stayer, Fight Value Check, Camp Crowding (tested, off)
 
 vs v8: head-to-head of 34, then regular bots (204 paired, margin per game).
