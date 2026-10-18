@@ -26,6 +26,8 @@ struct CachedCampGroup {
     bool reward_waiting = false;                   // last seen dead with the reward not captured
     std::uint32_t max_respawn = 0;                 // configured respawn timer
     std::uint32_t left_to_teammate_round = 0;      // round we left its reward to a teammate (0: not left)
+    int own_spawn_dist = 0;                        // Chebyshev distance from its centre to our nearest spawn tile
+    int enemy_spawn_dist = 0;                      // ... and to the enemy's
 };
 // Round the group is ready again: the last seen respawn timer, or after we left its reward to a
 // teammate, when that capture should finish plus the respawn timer.

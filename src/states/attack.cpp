@@ -190,6 +190,24 @@ int AttackState::score(const TurnContext& ctx) {
         const bool in_progress = last_attack_round + 1 >= round && last_attack_round != 0;
         if ((t.attack || t.chase) && (constants::kFightEv == 2 || !in_progress) && !fight_worth_it()) return 0;
     }
+    // No gems to gain (constants::kFightGainPlan): an enemy carrying nothing near its own spawn is
+    // not worth starting a fight with (it respawns next door; a kill gains no gems). Hit since our
+    // last turn: fight back anyway.
+    if constexpr (constants::kFightGainPlan > 0) {
+        if (t.attack && t.attack->gem_count() == 0 && !ctx.match_data->hit_since_last_turn) {
+            static const auto own = cambc::map::spawn_region(cambc::team::ally).positions();
+            static const auto enemy = cambc::map::spawn_region(cambc::team::enemy).positions();
+            const auto nearest = [](vec2 c, const std::vector<vec2>& tiles) {
+                int best = 1 << 20;
+                for (const auto tile : tiles) best = std::min(best, static_cast<int>(c.chebyshev_distance(tile)));
+                return best;
+            };
+            const auto pos = t.attack->position();
+            const int to_theirs = nearest(pos, enemy);
+            if (constants::kFightGainPlan == 1 && to_theirs <= constants::kNoGainSpawnRadius) return 0;
+            if (constants::kFightGainPlan == 2 && to_theirs < nearest(pos, own)) return 0;
+        }
+    }
     if (t.attack || t.waiting || t.chase) return constants::kAttackScore;
     if (team_fight_called()) return constants::kTeamFightCallScore;
     return 0;

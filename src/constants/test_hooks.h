@@ -242,6 +242,12 @@
 #ifndef COMMIT_TARGET
 #define COMMIT_TARGET 0.0f
 #endif
+#ifndef FIGHT_GAIN_PLAN
+#define FIGHT_GAIN_PLAN 0
+#endif
+#ifndef ENEMY_SIDE_PLAN
+#define ENEMY_SIDE_PLAN 0
+#endif
 #ifndef GOLD_DECAY_PLAN
 #define GOLD_DECAY_PLAN 0
 #endif

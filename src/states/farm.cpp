@@ -89,6 +89,15 @@ std::optional<float> camp_value(const CachedCampGroup& group, int walk, const Te
                                 float max_damage_share = constants::kMaxCampDamageShare) {
     const auto round = cambc::round_number();
     if (respawn_ready(group) > round + static_cast<std::uint32_t>(walk)) return std::nullopt;   // still respawning on arrival
+    // Gold-only groups on the enemy's side (constants::kEnemySidePlan): little to gain, and the
+    // enemy fights there next to its spawn. 1: closer to their spawn than ours; 2: within
+    // kEnemySideRadius of their spawn.
+    if constexpr (constants::kEnemySidePlan > 0) {
+        if (group.gem_value == 0) {
+            if (constants::kEnemySidePlan == 1 && group.enemy_spawn_dist < group.own_spawn_dist) return std::nullopt;
+            if (constants::kEnemySidePlan == 2 && group.enemy_spawn_dist <= constants::kEnemySideRadius) return std::nullopt;
+        }
+    }
     int kill = 0;
     // A reward we left to a teammate was collected by now, and the camps are back.
     if (!group.reward_waiting || group.left_to_teammate_round) {

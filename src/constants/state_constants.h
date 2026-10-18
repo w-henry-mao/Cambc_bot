@@ -63,6 +63,14 @@ constexpr float kGoldWeight = GOLD_WEIGHT;         // 0.25 unless a test build o
 // Decaying gold weight (A/B test, states/farm.cpp gold_weight): 0 off, 1 by enemy gems banked,
 // 2 by round, 3 until our planned emblems are bought.
 constexpr int kGoldDecayPlan = GOLD_DECAY_PLAN;
+// Skip gold-only groups on the enemy's side (A/B test, states/farm.cpp camp_value): 0 off,
+// 1 closer to the enemy spawn than ours, 2 within kEnemySideRadius of the enemy spawn.
+constexpr int kEnemySidePlan = ENEMY_SIDE_PLAN;
+// No-gain fights (A/B test, states/attack.cpp score): don't start a fight with an enemy carrying no
+// gems that is 1: within kNoGainSpawnRadius of its spawn, 2: closer to its spawn than ours.
+constexpr int kFightGainPlan = FIGHT_GAIN_PLAN;
+constexpr int kNoGainSpawnRadius = 12;
+constexpr int kEnemySideRadius = 16;
 constexpr float kGoldDecayScale = GOLD_DECAY_SCALE;     // plan 1: weight = gems the enemy still needs / this
 constexpr float kGoldDecayStart = GOLD_DECAY_START;     // plan 2: weight at round 0; plan 3: weight before our emblems
 constexpr float kGoldDecayRounds = GOLD_DECAY_ROUNDS;   // plan 2: round the decay reaches 0

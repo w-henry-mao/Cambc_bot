@@ -38,6 +38,20 @@ bool stage_map_snapshot(MatchData& match_data) {
         cached.view = std::move(group);
         match_data.camp_groups.push_back(std::move(cached));
     }
+    // Distance from each group to both spawns (constants::kEnemySidePlan).
+    if constexpr (ENEMY_SIDE_PLAN > 0) {
+        const auto own = cambc::map::spawn_region(cambc::team::ally).positions();
+        const auto enemy = cambc::map::spawn_region(cambc::team::enemy).positions();
+        const auto nearest = [](cambc::vec2 c, const std::vector<cambc::vec2>& tiles) {
+            int best = 1 << 20;
+            for (const auto t : tiles) best = std::min(best, static_cast<int>(c.chebyshev_distance(t)));
+            return best;
+        };
+        for (auto& g : match_data.camp_groups) {
+            g.own_spawn_dist = nearest(g.centre, own);
+            g.enemy_spawn_dist = nearest(g.centre, enemy);
+        }
+    }
     match_data.static_blockers = cambc::map::walls() | cambc::map::holes()
         | cambc::map::altars() | cambc::map::spawn_region(cambc::team::enemy);
     match_data.map_width = cambc::map::width();
