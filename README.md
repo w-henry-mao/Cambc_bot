@@ -262,6 +262,13 @@ vs current main (204 regular + 34 head-to-head): 0.97 -40/game (p=0.05), 12/34; 
 stampede's gems are one 12-camp group (17,400 hp total) on the far side of an open, bushy map;
 contest's are two single 20,000 hp monoliths in a walled map, equidistant from both spawns.
 
+Held-out check (maps in `tools/maps_custom/`, made with the cambc map editor): stampede_mono (two
+single monoliths, far right), stampede_center (the 12-camp herd moved to the centre), contest_side
+(monoliths moved to the far corners, 42 from each spawn), contest_herd (each monolith replaced by
+3 elk + 3 gem clusters). Wins of 14, 0.93 vs 0.97: 11 vs 10, 12 vs 12 (gems 964 vs 669), 13 vs 2,
+12 vs 10. 0.97 helps only on the original stampede; neither gem-source type nor location predicts
+it, so no per-class discount rule.
+
 ## Capture Stayer, Fight Value Check, Camp Crowding (tested, off)
 
 vs v8: head-to-head of 34, then regular bots (204 paired, margin per game).

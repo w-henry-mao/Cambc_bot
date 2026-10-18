@@ -102,7 +102,7 @@ void Bot::play_turn() {
     if constexpr (MAP_DUMP) {
         // Once: map size, then each camp group with its walk from our and the enemy's spawn.
         static bool dumped = false;
-        if (!dumped && match_data_.initialized) {
+        if (!dumped && match_data_.initialized && !roster_allies().empty() && roster_allies()[0] == cambc::self()) {
             dumped = true;
             const auto blockers = cambc::map::walls() | cambc::map::holes();
             cambc::distance_field ours, theirs;
@@ -115,6 +115,8 @@ void Bot::play_turn() {
                 std::cout << "GROUP " << g.centre.x << ' ' << g.centre.y << " gems " << g.gem_value << " gold " << g.gold_value
                           << " hp " << g.design_health << " str " << g.design_strength << " camps " << g.spawn_positions.size()
                           << " ours " << ours.get(g.centre) << " theirs " << theirs.get(g.centre) << '\n';
+            for (const auto& g : cambc::map::camp_groups())
+                for (const auto& c : g) std::cout << "CAMP " << c.spawn_position().x << ' ' << c.spawn_position().y << " hp " << c.base_stats().base_health << '\n';
             for (const auto a : cambc::map::altars().positions())
                 std::cout << "ALTAR " << a.x << ' ' << a.y << " ours " << ours.get(a) << " theirs " << theirs.get(a) << '\n';
         }
