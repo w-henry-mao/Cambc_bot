@@ -99,6 +99,11 @@
 #ifndef WAIT_BESIDE_SPAWN
 #define WAIT_BESIDE_SPAWN true
 #endif
+// Recall to shop once our gold finishes the next planned emblem, between jobs (false: shop only when
+// on spawn for other reasons, the old behaviour, for A/B tests).
+#ifndef SHOP_RECALL
+#define SHOP_RECALL true
+#endif
 // Each champion picks its own camp (false: the shared team target, for A/B tests).
 #ifndef PER_CHAMPION_CAMPS
 #define PER_CHAMPION_CAMPS false

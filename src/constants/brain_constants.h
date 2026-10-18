@@ -8,6 +8,11 @@ constexpr int kAttackScore = 80;
 // to the called target). Recall (kRecallScore) still wins over it.
 constexpr int kTeamFightCallScore = 80;
 constexpr int kTributeScore = 60;
+// Shop trip (states/recall.cpp): recall score when the gold we carry finishes our next planned
+// emblem (states/shop.h) and we are between jobs: no enemy in reach, not hit since last turn, not
+// hitting, capturing or about to capture our camp, and no gems to bank first.
+constexpr bool kShopRecall = SHOP_RECALL;
+constexpr int kShopRecallScore = 100;
 constexpr int kFarmScore = 40;
 constexpr int kDefaultSwitchMargin = 10;
 // Camp fights (to-do #5): an enemy fighting a camp (an awake camp within its reach) is attacked

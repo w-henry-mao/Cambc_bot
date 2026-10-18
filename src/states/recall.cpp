@@ -4,6 +4,8 @@
 #include "recall.h"
 #include "farm.h"
 #include "shop.h"
+#include "attack.h"
+#include "tribute.h"
 #include "../core/context.h"
 #include "../core/match_data.h"
 #include "../nav/pathfinding.h"
@@ -14,6 +16,32 @@
 #include "../constants/state_constants.h"
 namespace {
 bool on_spawn() { return cambc::map::spawn_region(cambc::team::ally).is_set(cambc::self().position()); }
+
+// Shop trip (constants::kShopRecall): the gold we carry finishes our next planned emblem and we are
+// between jobs. Cheapest checks first: most turns stop at the gold check.
+bool shop_trip_due(const TurnContext& ctx) {
+    auto& me = cambc::self();
+    if (me.passive() == cambc::passive_type::remote_shop) return false;   // shops anywhere already
+    const auto need = next_emblem_gold(me);
+    if (!need || me.gold_count() < *need) return false;
+    auto& match = *ctx.match_data;
+    if (match.hit_since_last_turn) return false;
+    if (const auto target = farm_target(match)) {
+        const auto& group = match.camp_groups[static_cast<std::size_t>(*target)];
+        // Capturing, or about to: a waiting reward next to us.
+        if (group.reward_waiting) {
+            int nearest = 1 << 20;
+            for (const auto tile : group.spawn_positions) nearest = std::min(nearest, distance(tile, me.position()));
+            if (nearest <= constants::kCollectorRadius) return false;
+        }
+        // Hitting it.
+        for (const auto& camp : *group.view)
+            if (camp.is_visible() && camp.health() > 0 && me.attack_tiles().is_set(camp.position())) return false;
+    }
+    if (tribute_state_instance.score(ctx) > 0) return false;   // bank the gems first
+    if (attack_state_instance.score(ctx) > 0) return false;    // an enemy in reach
+    return true;
+}
 }
 // Heal: when badly hurt, recall; a hurt champion on spawn stays there for the turn, since
 // spawn heals only if the turn ends there.
@@ -23,6 +51,8 @@ int RecallState::score(const TurnContext& ctx) {
     if (me.health() < me.max_health() * constants::kRecallHpFraction) return constants::kRecallScore;
     // Hurt with nothing to farm: go heal instead of standing around.
     if (me.health() < me.max_health() && !farm_target(*ctx.match_data)) return constants::kRecallScore;
+    // Gold for our next emblem and nothing else going on: go shopping.
+    if (constants::kShopRecall && shop_trip_due(ctx)) return constants::kShopRecallScore;
     return 0;
 }
 StateResult RecallState::execute(TurnContext& ctx, BotMemory& memory) {
