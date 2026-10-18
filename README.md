@@ -419,6 +419,23 @@ Top ladder (50 paired site rematches of v17's games, same opponent versions and 
 Pursuit plan 1 (`PURSUE_PLAN` 1: hit a recalling or tributing enemy in reach first; team doc idea),
 same 50 rematches: 47 identical, +3/game (t=0.57), wins 2 vs 2. It almost never comes up. Off.
 
+## Enemy Side and No-Gain Fights (tested, off)
+
+From a ranked stampede loss to Invincible Coders (360:1080): they sent all six at the 12-camp gem
+herd from round ~50 (39 deaths, almost no gold) and captured it at 626; we farmed 117 gold-only
+groups (13,400 gold) and first hit the herd at 1015. 11 of our 13 deaths were within ~25 tiles of
+their spawn, mostly at the gold groups next to it, two of them carrying a herd capture.
+- `ENEMY_SIDE_PLAN` (skip gold-only groups; gem groups unaffected): 1 = closer to their spawn than
+  ours: head-to-head 15/34, regular bots -14/game (p=0.43), contest collapses (margin 267 vs 783).
+  2 = within 16 (Chebyshev) of their spawn: 17/34, +12/game (p=0.25). Site, plan 2 (paired
+  rematches of v17's games): top ladder 50 games, 45 identical, -1.8/game (t=-0.38); Invincible
+  Coders 2 wins of 5 (was 0: stampede 1260:180, collision 1036:484); nine mid-ladder groups 45
+  games, -45/game (t=-0.76), wins 26 vs 28. Contest got worse in all three mid-ladder groups that
+  had it (800:400 to 0:1000, 1000:0 to 800:200, 600:0 to 200:400). Off.
+- `FIGHT_GAIN_PLAN` (don't start a fight with an enemy carrying no gems near its spawn; fight back
+  if hit): 1 = within 12 of its spawn: 11/34 (p=0.06), -10/game (p=0.54); 2 = on its half: 11/34,
+  -38/game (p=0.07). Our deaths per game rise (6.0 to 6.6 / 8.4), kills fall. Off.
+
 ## Route Planning (tested, off)
 
 The draft computes walking distances between all camp group centres (`core/group_routes.h`; one
