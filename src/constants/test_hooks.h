@@ -178,6 +178,14 @@
 #ifndef CAMP_CROWD_ROUNDS
 #define CAMP_CROWD_ROUNDS 0
 #endif
+// Round discount on monolith-only maps (constants/state_constants.h kStarvedRoundDiscount).
+#ifndef STARVED_ROUND_DISCOUNT
+#define STARVED_ROUND_DISCOUNT ROUND_DISCOUNT
+#endif
+// Test builds: print the map's camp groups once (bot.cpp), for map classification work.
+#ifndef MAP_DUMP
+#define MAP_DUMP false
+#endif
 // Idle recall threshold (constants/state_constants.h kIdleRecallHpFraction).
 #ifndef IDLE_RECALL_HP
 #define IDLE_RECALL_HP 1.0f

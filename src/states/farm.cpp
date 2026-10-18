@@ -22,6 +22,9 @@
 namespace {
 constexpr int kUnreached = 65535;
 
+// Monolith-only maps (gem_starved, set each round by farm_target) may use their own discount
+// (constants::kStarvedRoundDiscount): their gems sit behind long kills.
+bool g_starved_map = false;
 float discount(int rounds) {
     static const auto table = [] {
         std::array<float, 512> powers{};
@@ -29,6 +32,15 @@ float discount(int rounds) {
         for (std::size_t i = 1; i < powers.size(); ++i) powers[i] = powers[i - 1] * constants::kRoundDiscount;
         return powers;
     }();
+    if constexpr (constants::kStarvedRoundDiscount != constants::kRoundDiscount) {
+        static const auto starved_table = [] {
+            std::array<float, 512> powers{};
+            powers[0] = 1.0f;
+            for (std::size_t i = 1; i < powers.size(); ++i) powers[i] = powers[i - 1] * constants::kStarvedRoundDiscount;
+            return powers;
+        }();
+        if (g_starved_map) return starved_table[static_cast<std::size_t>(std::clamp(rounds, 0, static_cast<int>(starved_table.size()) - 1))];
+    }
     return table[static_cast<std::size_t>(std::clamp(rounds, 0, static_cast<int>(table.size()) - 1))];
 }
 
@@ -259,6 +271,7 @@ std::optional<int> farm_target(MatchData& match, bool force) {
     // A property of the map: no gem group even one champion at full health could take within the
     // normal limit (normal maps have wolves, elks or gem clusters; stampede and contest only monoliths).
     const bool starved = gem_starved(match, Team{dps, 1}, me.max_health());
+    g_starved_map = starved;
     // Capture stayer: a cleared group of ours waiting for capture is kept only by its stayer;
     // everyone else (and the team target) moves on.
     std::optional<int> capture_exclude;

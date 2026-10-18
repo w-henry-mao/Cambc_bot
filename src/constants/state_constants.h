@@ -45,6 +45,8 @@ constexpr int kTributeIfAltarWithin = 8;
 // Camp value: (gems + gold x kGoldWeight) x kRoundDiscount ^ (walk + kill + capture rounds).
 constexpr float kRoundDiscount = ROUND_DISCOUNT;   // 0.93 unless a test build overrides (README, Farming)
 constexpr float kGoldWeight = GOLD_WEIGHT;         // 0.25 unless a test build overrides
+// Round discount on monolith-only maps (gem_starved); kRoundDiscount there unless overridden.
+constexpr float kStarvedRoundDiscount = STARVED_ROUND_DISCOUNT;
 // Only camps within this walk are considered (the search stops there).
 constexpr int kCampSearchRange = 60;
 // Switch farm target only for a camp worth this much more than the current one.

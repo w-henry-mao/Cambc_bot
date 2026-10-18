@@ -99,6 +99,26 @@ void Bot::play_turn() {
     selector.add_state(&farm_state_instance, State::Farm);
     decide_team_fight_call();
     combat_trace_turn_start();
+    if constexpr (MAP_DUMP) {
+        // Once: map size, then each camp group with its walk from our and the enemy's spawn.
+        static bool dumped = false;
+        if (!dumped && match_data_.initialized) {
+            dumped = true;
+            const auto blockers = cambc::map::walls() | cambc::map::holes();
+            cambc::distance_field ours, theirs;
+            cambc::bitboard visited;
+            ours.compute(blockers, cambc::map::spawn_region(cambc::team::ally), visited);
+            theirs.compute(blockers, cambc::map::spawn_region(cambc::team::enemy), visited);
+            std::cout << "MAP " << cambc::map::width() << ' ' << cambc::map::height() << " altars " << cambc::map::altars().count()
+                      << " bushes " << cambc::map::bushes().count() << " walls " << cambc::map::walls().count() << '\n';
+            for (const auto& g : match_data_.camp_groups)
+                std::cout << "GROUP " << g.centre.x << ' ' << g.centre.y << " gems " << g.gem_value << " gold " << g.gold_value
+                          << " hp " << g.design_health << " str " << g.design_strength << " camps " << g.spawn_positions.size()
+                          << " ours " << ours.get(g.centre) << " theirs " << theirs.get(g.centre) << '\n';
+            for (const auto a : cambc::map::altars().positions())
+                std::cout << "ALTAR " << a.x << ' ' << a.y << " ours " << ours.get(a) << " theirs " << theirs.get(a) << '\n';
+        }
+    }
     if constexpr (constants::kAltarMemory) note_altar_locks(match_data_);
     selector.select_and_execute(ctx, memory_);
     if constexpr (STATE_TRACE) {

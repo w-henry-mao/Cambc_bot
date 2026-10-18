@@ -253,6 +253,15 @@ default again (`SHOP_RECALL_GOLD` 0): this branch plays exactly like main.
 efa48d8: head-to-head 18/34, regular bots +22/game (p=0.28), top ladder 50 paired games -4/game
 (t=-0.20), 23 better / 21 worse. No difference; vs v8 on the top ladder +103/game (t=3.57). Live as v17.
 
+## Monolith-Map Discount (tested, off) and Map Dump
+
+`STARVED_ROUND_DISCOUNT`: a separate camp-value discount on gem-starved maps (stampede, contest).
+vs current main (204 regular + 34 head-to-head): 0.97 -40/game (p=0.05), 12/34; 0.99 -99/game
+(p<0.001), 15/34. Per map (12 each): stampede 0.97 wins 12/12, 1088 gems, ends ~round 1183 (main
+11/12, 915, ~1789); contest 0.97 wins 3/12 (main 10/12). The two maps differ (`MAP_DUMP`):
+stampede's gems are one 12-camp group (17,400 hp total) on the far side of an open, bushy map;
+contest's are two single 20,000 hp monoliths in a walled map, equidistant from both spawns.
+
 ## Capture Stayer, Fight Value Check, Camp Crowding (tested, off)
 
 vs v8: head-to-head of 34, then regular bots (204 paired, margin per game).
