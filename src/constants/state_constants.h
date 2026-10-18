@@ -68,6 +68,9 @@ constexpr bool kSeqCampDamage = SEQ_CAMP_DAMAGE;
 constexpr int kCampSearchRange = 60;
 // Switch farm target only for a camp worth this much more than the current one.
 constexpr float kSwitchFactor = 1.25f;
+// Farm target commitment (A/B test, 0 = off): keep walking to the current camp unless it stops
+// being worth taking or the new pick is worth this many times as much (states/farm.cpp).
+constexpr float kCommitTarget = COMMIT_TARGET;
 // Skip a camp if the damage it would deal while we kill it, shared among us and the allies near
 // us, exceeds this fraction of our health.
 constexpr float kMaxCampDamageShare = MAX_CAMP_DAMAGE_SHARE;   // test builds may override

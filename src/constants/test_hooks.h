@@ -221,6 +221,9 @@
 #ifndef ROUND_DISCOUNT
 #define ROUND_DISCOUNT 0.93f
 #endif
+#ifndef COMMIT_TARGET
+#define COMMIT_TARGET 0.0f
+#endif
 #ifndef GOLD_WEIGHT
 #define GOLD_WEIGHT 0.25f
 #endif

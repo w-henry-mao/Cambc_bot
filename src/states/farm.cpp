@@ -299,7 +299,10 @@ std::optional<int> farm_target(MatchData& match, bool force) {
         target_size = sizes[static_cast<std::size_t>(g)];
         if (g == 0) {
             if (i_lead_group(0)) {
-                team_target = best_camp(match, field, Team{dps * static_cast<float>(target_size), target_size}, match.farm_target, starved).group;
+                static std::optional<int> last_group_target;
+                const auto current = constants::kCommitTarget > 0 ? last_group_target : match.farm_target;
+                team_target = best_camp(match, field, Team{dps * static_cast<float>(target_size), target_size}, current, starved).group;
+                last_group_target = team_target;
                 write_team_target(team_target);
             } else {
                 team_target = read_team_target(match);
@@ -312,8 +315,12 @@ std::optional<int> farm_target(MatchData& match, bool force) {
             team_target = g2 - 1;
         }
     } else if (i_lead()) {
-        team_target = best_camp(match, field, Team{dps * static_cast<float>(team_size), team_size}, match.farm_target, starved,
+        // kCommitTarget: the team target keeps itself (the leader's own pick may be a solo camp).
+        static std::optional<int> last_team_target;
+        const auto current = constants::kCommitTarget > 0 ? last_team_target : match.farm_target;
+        team_target = best_camp(match, field, Team{dps * static_cast<float>(team_size), team_size}, current, starved,
                                 capture_exclude).group;
+        last_team_target = team_target;
         write_team_target(team_target);
     } else {
         team_target = read_team_target(match);
@@ -365,7 +372,26 @@ std::optional<int> farm_target(MatchData& match, bool force) {
         match.farm_target = team_target ? team_target : solo.group;
         return match.farm_target;
     }
+    const auto previous = match.farm_target;
     match.farm_target = (solo.group && solo.value >= team_value) ? solo.group : team_target;
+    // Commit to the camp we are walking to: switch only if it is no longer worth taking (respawning
+    // by the time we arrive, too dangerous) or the new pick is worth kCommitTarget times as much.
+    if constexpr (constants::kCommitTarget > 0) {
+        if (previous && match.farm_target && *previous != *match.farm_target) {
+            const auto value_of = [&](int i) {
+                const auto& group = match.camp_groups[static_cast<std::size_t>(i)];
+                const int walk = field.get(group.centre);
+                if (walk == kUnreached) return 0.0f;
+                const bool team = team_target && *team_target == i;
+                const float share = starved && group.gem_value > 0 ? constants::kMaxCampDamageShareGemStarved
+                                    : team ? constants::kMaxCampDamageShare : constants::kSoloDamageShare;
+                const Team t = team ? Team{dps * static_cast<float>(target_size), target_size} : Team{dps, 1};
+                return camp_value(group, walk, t, me.health(), share).value_or(0.0f);
+            };
+            const float kept = value_of(*previous);
+            if (kept > 0 && value_of(*match.farm_target) < constants::kCommitTarget * kept) match.farm_target = previous;
+        }
+    }
     // Enough of us at the team target already for a camp this strong: farm elsewhere.
     if constexpr (constants::kCampCrowdRounds > 0) {
         if (match.farm_target && match.farm_target == team_target && dps > 0) {

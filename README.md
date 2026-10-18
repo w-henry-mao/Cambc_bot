@@ -350,6 +350,23 @@ groups worth 0 gems, theirs 9 groups of 120). When nobody dies, our time spent o
 theirs; the gap is damage per round, along with their earlier gold. Routing can win back at most
 the ~12% uptime difference there.
 
+Per champion (us / them, per game): rounds dealing monster damage Issac 60/114, Ren 86/141, Ryth
+61/119, Stellar 108/106, Cassi 106/125; damage per such round Issac 80/91, Ren 98/108, Ryth
+126/123, Stellar 129/199, Cassi 66/77; gold by round 300 Stellar 186/433, Cassi 138/273. Our
+melee champions deal the same damage per round but hit camps half as often; our casters have the
+time but half the gold. They draft Varg in 20 of 28 games (174 damage per round).
+
+Local `STATE_TRACE` (20 games on expanse, rows, ambush, elkring, pilgrimage vs opp-caller and
+v5): every champion spends 50-64% of rounds walking in the farm state, ~30% at a camp, 6-11%
+carrying gems to an altar. A trip that reaches its camp walks 9.6 rounds for 10 rounds at the
+camp. Of farm-to-farm target changes, 34% are on arriving at a camp a teammate just cleared and
+38% are re-picks en route (mostly after a death or recall).
+- `COMMIT_TARGET` (keep the camp we walk to, and the leader keeps the team target, unless the new
+  one is worth K times as much): K=1.25 / 1.5 left switches unchanged (5.0 vs 5.1 per 100 farm
+  rounds), 19/20 vs 20/20 wins locally. Off.
+- Draft with Varg (vs main; head-to-head of 34, regular bots 204 paired): Varg instead of Tavi
+  13/34, -31/game (p=0.12); Varg first 12/34, -26/game (p=0.27). Not adopted.
+
 ## Capture Stayer, Fight Value Check, Camp Crowding (tested, off)
 
 vs v8: head-to-head of 34, then regular bots (204 paired, margin per game).

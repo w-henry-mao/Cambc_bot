@@ -146,6 +146,22 @@ void Bot::play_turn() {
             std::cout << ' ' << me.position().x << ' ' << me.position().y << ' ' << me.gem_count() << ' '
                       << me.health() << ' ' << me.max_health() << ' ' << seen << ' ' << nearest << ' '
                       << match_data_.farm_target.value_or(-1);
+            // ... distance to the farm target's centre, rounds until it respawns (0: up).
+            if (const auto t = match_data_.farm_target; t && *t >= 0 && *t < static_cast<int>(match_data_.camp_groups.size())) {
+                const auto& group = match_data_.camp_groups[static_cast<std::size_t>(*t)];
+                const auto ready = respawn_ready(group), now = static_cast<std::uint32_t>(cambc::round_number());
+                std::cout << ' ' << me.position().chebyshev_distance(group.centre) << ' ' << (ready > now ? ready - now : 0);
+            }
+            // ... and on a target change, the old target: distance, rounds until it respawns, reward waiting.
+            static std::optional<int> last_target;
+            const auto t = match_data_.farm_target;
+            if (last_target && t != last_target && *last_target >= 0 && *last_target < static_cast<int>(match_data_.camp_groups.size())) {
+                const auto& old = match_data_.camp_groups[static_cast<std::size_t>(*last_target)];
+                const auto ready = respawn_ready(old), now = static_cast<std::uint32_t>(cambc::round_number());
+                std::cout << " SW " << *last_target << ' ' << me.position().chebyshev_distance(old.centre) << ' '
+                          << (ready > now ? ready - now : 0) << ' ' << old.reward_waiting;
+            }
+            last_target = t;
         }
         std::cout << '\n';
     }
