@@ -317,7 +317,9 @@ vs current main, regular bots 204 paired (kills / deaths per game change), head-
 - `RETREAT_FIRE` (while walking away to recall, cast at the nearest enemy; melee also attack it):
   deaths -1.25 (p=0.056).
 - `RETREAT_FIRE` + `FINISH_KILL`: deaths -1.82 (p=0.015), kills +0.73 (p=0.08), gems +28/game
-  (p=0.08), head-to-head 17/34. Top-ladder test pending.
+  (p=0.08), head-to-head 17/34. Top ladder, 50 paired games vs main: -20/game (t=-1.73), 36
+  identical, 5 better / 9 worse; wins 1 vs 2. Not adopted: the local gain against our own
+  bots does not carry over to the top teams.
 
 ## Capture Stayer, Fight Value Check, Camp Crowding (tested, off)
 
