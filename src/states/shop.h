@@ -16,6 +16,7 @@
 //   12 Durability health, then Bruiser health shards   (our build plus one emblem)
 //   13 plan 9 with Willow on focus (heals); the default
 //   14 plan 13 with a Jungle emblem (main stat) first: 30% less damage from camps
+//   15 Jungle, Durability (chosen stat), then Bruiser shards for selected champions or Power shards
 // The emblem plan for `me`: the emblems to finish in order, then the shard bought with the rest.
 struct EmblemPlan {
     struct Step { cambc::item_type shard, emblem; };
@@ -41,6 +42,23 @@ inline EmblemPlan emblem_plan(const cambc::champion& me) {
     const Step bru_hp{it::bruiser_shard_of_health, it::bruiser_emblem_of_health};
     EmblemPlan plan;
     plan.main = power.shard;
+    if constexpr (SHOP_PLAN == 15) {
+        const bool chosen_focus = type == ct::cassi || type == ct::prism || type == ct::stellar
+            || type == ct::tavi || type == ct::willow;
+        const bool bruiser = type == ct::cassi || type == ct::ryth || type == ct::prism
+            || type == ct::stellar || type == ct::tavi || type == ct::willow || type == ct::ren;
+        const auto jungle_shard = chosen_focus ? it::jungle_shard_of_focus : it::jungle_shard_of_strength;
+        const auto jungle_emblem = chosen_focus ? it::jungle_emblem_of_focus : it::jungle_emblem_of_strength;
+        const auto durability_shard = chosen_focus ? it::durability_shard_of_focus : it::durability_shard_of_strength;
+        const auto durability_emblem = chosen_focus ? it::durability_emblem_of_focus : it::durability_emblem_of_strength;
+        plan.steps[0] = Step{jungle_shard, jungle_emblem};
+        plan.steps[1] = Step{durability_shard, durability_emblem};
+        plan.n_steps = 2;
+        plan.main = bruiser
+            ? (chosen_focus ? it::bruiser_shard_of_focus : it::bruiser_shard_of_strength)
+            : (chosen_focus ? it::power_shard_of_focus : it::power_shard_of_strength);
+        return plan;
+    }
     switch (SHOP_PLAN) {
         case 10: plan.steps[0] = jungle; plan.steps[1] = power; plan.steps[2] = dur_main; plan.steps[3] = bru_hp; plan.n_steps = 4; break;
         case 11: plan.steps[0] = power; plan.steps[1] = dur_hp; plan.n_steps = 2; break;

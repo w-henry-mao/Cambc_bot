@@ -266,9 +266,9 @@
 #ifndef TRIBUTE_GEMS
 #define TRIBUTE_GEMS 40
 #endif
-// Shop plan (states/shop.h); 13 = emblems then Power shards of the main stat, 0 = Bruiser health only.
+// Shop plan (states/shop.h); 15 = Jungle + Durability emblems, then champion-specific shards.
 #ifndef SHOP_PLAN
-#define SHOP_PLAN 13
+#define SHOP_PLAN 15
 #endif
 // Our altar lock plan (constants/brain_constants.h kAltarLockPlan).
 #ifndef ALTAR_LOCK_PLAN

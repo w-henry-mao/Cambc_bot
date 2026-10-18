@@ -468,11 +468,12 @@ vs v8: head-to-head of 34, then regular bots (204 paired, margin per game).
 
 ## Shop
 
-Default (`SHOP_PLAN` 13, `states/shop.h`): one emblem each of Power (main stat), Durability health
-and Bruiser health, then Power shards of the main stat for the rest of the game. Main stat is focus
-for Cassi, Stellar, Prism, Ren and Willow, strength for the others. This follows the two top
-teams: summary data from 0-5 losses to each showed them buying Power shards of the main stat plus
-a few emblems, clearing 2-3x as many camps and dealing 2-3x our monster damage.
+Default (`SHOP_PLAN` 15, `states/shop.h`): buy five Jungle shards, then five Durability shards,
+both in each champion's selected stat. After those emblems, buy Bruiser shards of that stat for
+Cassi, Ryth, Prism, Stellar, Tavi, Willow and Ren; buy Power shards of that stat for Issac,
+Vesper Vale, Vendetta, Marcella and Varg for the rest of the game. Focus is selected for Cassi,
+Prism, Stellar, Tavi and Willow; strength is selected for the other listed champions. Five matching
+shards automatically form the emblem; the passive only applies once the emblem is complete.
 
 Tested against the previous default, Bruiser health shards (plan 0), on all 17 maps, both sides,
 vs v5, locker, main, opp-caller, opp-rush and starter-cpp (204 matches each), wins:
