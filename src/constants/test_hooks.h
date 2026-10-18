@@ -91,6 +91,9 @@
 #endif
 // One champion collects a camp's reward while the others move on (false: everyone at the camp
 // stands on it and the reward is split, the old behaviour, for A/B tests).
+#ifndef COLLECTOR_RADIUS
+#define COLLECTOR_RADIUS 3
+#endif
 #ifndef SINGLE_COLLECTOR
 #define SINGLE_COLLECTOR true
 #endif
@@ -220,6 +223,12 @@
 // Farm tunables for test sweeps (constants/state_constants.h).
 #ifndef ROUND_DISCOUNT
 #define ROUND_DISCOUNT 0.93f
+#endif
+#ifndef ROUTE_DEPTH
+#define ROUTE_DEPTH 1
+#endif
+#ifndef ROUTE_LOOKAHEAD
+#define ROUTE_LOOKAHEAD 0
 #endif
 #ifndef COMMIT_TARGET
 #define COMMIT_TARGET 0.0f

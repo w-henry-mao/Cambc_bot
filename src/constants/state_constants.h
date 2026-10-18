@@ -71,6 +71,11 @@ constexpr float kSwitchFactor = 1.25f;
 // Farm target commitment (A/B test, 0 = off): keep walking to the current camp unless it stops
 // being worth taking or the new pick is worth this many times as much (states/farm.cpp).
 constexpr float kCommitTarget = COMMIT_TARGET;
+// Route lookahead (A/B test, 0 = off): the best K camps by their own value also count the best
+// camp to take after them, using the draft's group distance table (core/group_routes.h).
+constexpr int kRouteLookahead = ROUTE_LOOKAHEAD;
+constexpr int kRouteDepth = ROUTE_DEPTH;   // camps counted after the first (1: the next one only)
+constexpr int kRouteBranch = 3;             // next camps explored per level when kRouteDepth > 1
 // Skip a camp if the damage it would deal while we kill it, shared among us and the allies near
 // us, exceeds this fraction of our health.
 constexpr float kMaxCampDamageShare = MAX_CAMP_DAMAGE_SHARE;   // test builds may override
@@ -121,7 +126,7 @@ constexpr std::uint32_t kOpeningMaxRounds = 200;
 // captured; if its reward is still waiting kCollectorGraceRounds after the capture should have
 // finished, the group is a normal target again.
 constexpr bool kSingleCollector = SINGLE_COLLECTOR;
-constexpr int kCollectorRadius = 3;
+constexpr int kCollectorRadius = COLLECTOR_RADIUS;   // 3 unless a test build overrides
 constexpr int kEmblemShards = 5;
 constexpr std::uint32_t kCollectorGraceRounds = 3;
 // A champion on any spawn tile holds the whole group's respawn (its timer stays at 0). While a

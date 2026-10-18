@@ -4,6 +4,7 @@
 #include <optional>
 #include <cstdint>
 #include <vector>
+#include "group_routes.h"
 // What we know about a camp group. Static parts are filled once by the map snapshot; the rest
 // is updated while the group is in sight.
 struct CachedCampGroup {
@@ -51,6 +52,9 @@ struct MatchData {
     float last_health = -1;                        // our health at the end of our previous turn
     bool hit_since_last_turn = false;
     std::optional<int> farm_target;                // camp group we are working on
+    // Walking distances between camp groups (constants::kRouteLookahead): from the draft's
+    // memory, rows it did not finish computed in the deferred setup.
+    group_routes::Table routes;
     // Altar-lock memory (constants::kAltarMemory): altar positions and the round we last saw an
     // enemy lock on each (0: none known).
     std::vector<cambc::vec2> altars;

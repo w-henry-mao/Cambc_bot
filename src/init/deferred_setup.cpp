@@ -1,6 +1,8 @@
 #include "deferred_setup.h"
 #include <vector>
 #include "../constants/brain_constants.h"
+#include "../constants/test_hooks.h"
+#include "../core/group_routes.h"
 
 namespace {
 // Tiles a waiting champion may stand on: not a spawn tile of any group, not a static blocker.
@@ -40,6 +42,17 @@ void continue_deferred_setup(MatchData& match) {
         const int groups = static_cast<int>(match.camp_groups.size());
         if (step == 0) build_home_distance(match);
         else if (step - 1 < groups) beside_tiles(match, match.camp_groups[static_cast<std::size_t>(step - 1)]);
-        else match.deferred_done = true;
+        else if (ROUTE_LOOKAHEAD > 0 && match.routes.n > 0 && !match.routes.ready()) {
+            // Route table rows the draft did not finish, one BFS per step.
+            static std::vector<cambc::vec2> centres;
+            static cambc::bitboard walls;
+            if (centres.empty()) {
+                cambc::bitboard camp_tiles;
+                camp_tiles.clear();
+                for (const auto& g : match.camp_groups) { centres.push_back(g.centre); camp_tiles |= g.spawn_tiles; }
+                walls = match.static_blockers & ~camp_tiles;
+            }
+            group_routes::compute_row(match.routes, match.routes.rows_done, walls, centres);
+        } else match.deferred_done = true;
     }
 }

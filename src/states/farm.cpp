@@ -12,6 +12,7 @@
 #include "../core/context.h"
 #include "../core/geometry.h"
 #include "../core/match_data.h"
+#include "../core/group_routes.h"
 #include "../core/roster.h"
 #include "../init/deferred_setup.h"
 #include "../nav/blocked_tiles.h"
@@ -68,6 +69,51 @@ std::optional<float> camp_value(const CachedCampGroup& group, int walk, const Te
 }
 
 struct Pick { std::optional<int> group; float value = 0; };
+// Route lookahead (constants::kRouteLookahead): what the best camp after group `from` adds, for
+// a team that finishes `from` in `finish` rounds: walking distance between groups from the draft's
+// table, the next group must be up by the time we get there, and the same danger limit applies.
+float next_camp_bonus(const MatchData& match, int from, int finish, const Team& team, float my_health, float max_damage_share,
+                      int depth = constants::kRouteDepth) {
+    if (!match.routes.ready() || team.dps <= 0 || depth <= 0) return 0;
+    const auto round = cambc::round_number();
+    float best = 0;
+    struct Next { int group = -1; float value = 0; int finish = 0; };
+    std::array<Next, constants::kRouteBranch> top{};
+    for (int j = 0; j < static_cast<int>(match.camp_groups.size()); ++j) {
+        if (j == from) continue;
+        const int d = match.routes.get(from, j);
+        if (d == group_routes::kFar) continue;
+        const auto& group = match.camp_groups[static_cast<std::size_t>(j)];
+        const int arrive = finish + d;
+        if (respawn_ready(group) > round + static_cast<std::uint32_t>(arrive)) continue;
+        const int kill = static_cast<int>(group.design_health / team.dps) + 1;
+        if (group.design_strength * static_cast<float>(kill) / static_cast<float>(team.count) > max_damage_share * my_health) continue;
+        const float reward = static_cast<float>(group.gem_value) + constants::kGoldWeight * static_cast<float>(group.gold_value);
+        const float value = reward * discount(arrive + kill + cambc::constants::capture_time);
+        if (depth == 1) { best = std::max(best, value); continue; }
+        // Deeper routes (constants::kRouteDepth > 1): the best kRouteBranch next camps by their own
+        // value also count the camp after them.
+        const Next next{j, value, arrive + kill + cambc::constants::capture_time};
+        for (int k = 0; k < constants::kRouteBranch; ++k)
+            if (top[static_cast<std::size_t>(k)].group < 0 || next.value > top[static_cast<std::size_t>(k)].value) {
+                for (int m = constants::kRouteBranch - 1; m > k; --m) top[static_cast<std::size_t>(m)] = top[static_cast<std::size_t>(m - 1)];
+                top[static_cast<std::size_t>(k)] = next;
+                break;
+            }
+    }
+    if (depth > 1)
+        for (const auto& t : top)
+            if (t.group >= 0)
+                best = std::max(best, t.value + next_camp_bonus(match, t.group, t.finish, team, my_health, max_damage_share, depth - 1));
+    return best;
+}
+// Rounds until a team finishes `group` from `walk` steps away (walk + kill + capture).
+int finish_rounds(const CachedCampGroup& group, int walk, const Team& team) {
+    const int kill = (!group.reward_waiting || group.left_to_teammate_round) && team.dps > 0
+        ? static_cast<int>(group.design_health / team.dps) + 1 : 0;
+    return walk + kill + cambc::constants::capture_time;
+}
+
 // Best camp for `team` by walking distance from us; keeps `current` unless another is clearly better.
 // Whether `group` passes the danger limit for `team` (as in camp_value, ignoring respawn timers).
 bool safe_enough(const CachedCampGroup& group, const Team& team, float my_health, float max_damage_share) {
@@ -92,6 +138,9 @@ Pick best_camp(const MatchData& match, const cambc::distance_field& field, const
     const float health = cambc::self().health();
     const bool gem_group_ok = !starved;
     Pick best, kept;
+    struct Candidate { int group = 0; float value = 0; int walk = 0; float share = 0; };
+    static std::array<Candidate, 64> candidates;
+    int n_candidates = 0;
     for (int i = 0; i < static_cast<int>(match.camp_groups.size()); ++i) {
         if (exclude == i) continue;
         const auto& group = match.camp_groups[static_cast<std::size_t>(i)];
@@ -109,8 +158,25 @@ Pick best_camp(const MatchData& match, const cambc::distance_field& field, const
             value = camp_value(group, walk, team, health, share);
         }
         if (!value) continue;
+        if constexpr (constants::kRouteLookahead > 0) {
+            if (n_candidates < static_cast<int>(candidates.size())) candidates[static_cast<std::size_t>(n_candidates++)] = {i, *value, walk, share};
+            continue;
+        }
         if (current == i) kept = {i, *value};
         if (!best.group || *value > best.value) best = {i, *value};
+    }
+    if constexpr (constants::kRouteLookahead > 0) {
+        // The best few by their own value (and the current target) also count the camp after them.
+        std::sort(candidates.begin(), candidates.begin() + n_candidates,
+                  [](const Candidate& a, const Candidate& b) { return a.value > b.value; });
+        for (int k = 0; k < n_candidates; ++k) {
+            auto& c = candidates[static_cast<std::size_t>(k)];
+            if (k >= constants::kRouteLookahead && current != c.group) continue;
+            const auto& group = match.camp_groups[static_cast<std::size_t>(c.group)];
+            c.value += next_camp_bonus(match, c.group, finish_rounds(group, c.walk, team), team, health, c.share);
+            if (current == c.group) kept = {c.group, c.value};
+            if (!best.group || c.value > best.value) best = {c.group, c.value};
+        }
     }
     const float factor = constants::kCommitTarget > 0 ? std::max(constants::kSwitchFactor, constants::kCommitTarget) : constants::kSwitchFactor;
     if (kept.group && best.value < factor * kept.value) return kept;
@@ -363,8 +429,14 @@ std::optional<int> farm_target(MatchData& match, bool force) {
         const int walk = field.get(group.centre);
         if (walk != kUnreached)
             if (const auto v = camp_value(group, walk, Team{dps * static_cast<float>(target_size), target_size}, me.health(),
-                                          starved && group.gem_value > 0 ? constants::kMaxCampDamageShareGemStarved : constants::kMaxCampDamageShare))
+                                          starved && group.gem_value > 0 ? constants::kMaxCampDamageShareGemStarved : constants::kMaxCampDamageShare)) {
                 team_value = *v;
+                if constexpr (constants::kRouteLookahead > 0) {
+                    const Team team{dps * static_cast<float>(target_size), target_size};
+                    team_value += next_camp_bonus(match, *team_target, finish_rounds(group, walk, team), team, me.health(),
+                                                  starved && group.gem_value > 0 ? constants::kMaxCampDamageShareGemStarved : constants::kMaxCampDamageShare);
+                }
+            }
     }
     // A team target we would not take (respawning by the time we arrive, too dangerous) is ignored.
     if (team_value <= 0) team_target.reset();

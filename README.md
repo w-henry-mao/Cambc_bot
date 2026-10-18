@@ -369,6 +369,22 @@ camp. Of farm-to-farm target changes, 34% are on arriving at a camp a teammate j
   1025; K=100 3.3, 14/20, 951. Re-picking toward camps that come into reach helps. Off.
 - Draft with Varg (vs main; head-to-head of 34, regular bots 204 paired): Varg instead of Tavi
   13/34, -31/game (p=0.12); Varg first 12/34, -26/game (p=0.27). Not adopted.
+- `COLLECTOR_RADIUS` (casters stand back, so the single collector, picked within 3 tiles, is
+  usually melee): 6 tiles 14/34, +7/game (p=0.65); 8 tiles 13/34, +3/game (p=0.86). Off.
+
+## Route Planning (tested, off)
+
+The draft computes walking distances between all camp group centres (`core/group_routes.h`; one
+BFS per group, ~400k fuel for expanse's 30 groups on the draft's first turn, which has ~940k) and
+passes them in draft memory (1024 bytes: a triangle of one-byte distances, up to 45 groups); rows
+it did not finish are computed in the deferred setup. Only route builds use it.
+- `ROUTE_LOOKAHEAD` K: the K best camps by their own value also count the best camp after them
+  (walk from the table, must be up on arrival, same danger limit); used for solo picks, the team
+  target and the solo-vs-team choice. vs main: K=4 head-to-head 9/34 (p=0.01), regular bots
+  -14/game (p=0.46); K=8 10/34, -146/game (p<0.001), wins 176 vs 198. No bot faults.
+- `ROUTE_DEPTH` 3 (two more camps, 3 branches per level), K=2: expanse 464 vs 1016 (main 1024 vs
+  512), ambush 72 vs 1068; the search likely exhausts turn fuel. Not run further.
+
 
 ## Capture Stayer, Fight Value Check, Camp Crowding (tested, off)
 
