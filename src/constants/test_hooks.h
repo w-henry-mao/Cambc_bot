@@ -143,7 +143,7 @@
 #endif
 // Recall to shop once we hold this much gold (0 = off, 1 = enough for the next emblem; states/recall.cpp).
 #ifndef SHOP_RECALL_GOLD
-#define SHOP_RECALL_GOLD 0
+#define SHOP_RECALL_GOLD 150
 #endif
 // Capture stayer (states/farm.cpp): one champion captures a cleared camp group while the rest move
 // on. 0 = off, 1 = closest to the group, 2 = lowest health fraction, 3 = lowest damage.
@@ -157,6 +157,11 @@
 // Recall below this fraction of max health (constants/state_constants.h kRecallHpFraction).
 #ifndef RECALL_HP
 #define RECALL_HP 0.35f
+#endif
+// Champions per camp by strength (states/farm.cpp): a camp needs enough of us to kill it in this
+// many rounds; once that many teammates are at the team target, others farm elsewhere (0 = off).
+#ifndef CAMP_CROWD_ROUNDS
+#define CAMP_CROWD_ROUNDS 0
 #endif
 // Idle recall threshold (constants/state_constants.h kIdleRecallHpFraction).
 #ifndef IDLE_RECALL_HP

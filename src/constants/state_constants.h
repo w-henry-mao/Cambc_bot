@@ -27,6 +27,7 @@ constexpr int kCaptureStayer = CAPTURE_STAYER;
 // (README, Team Fights: we lost fewer in 73-79% of Fight, ~55% of Unsure, ~30% of Avoid calls).
 constexpr int kFightEv = FIGHT_EV;
 constexpr float kFightEvWinFight = 0.75f, kFightEvWinUnsure = 0.55f, kFightEvWinAvoid = 0.30f;
+constexpr int kCampCrowdRounds = CAMP_CROWD_ROUNDS;   // champions per camp by strength (0 = off)
 constexpr bool kAltarMemory = ALTAR_MEMORY;
 constexpr std::uint32_t kAltarLockMemoryRounds = 200;
 constexpr int kAltarClearDistance = 5;

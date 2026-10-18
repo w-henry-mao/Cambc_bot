@@ -217,6 +217,39 @@ and 64, so `sweep_team_header()` clears expired entries at the start of every ch
 normal matches and in 24 test-caller matches with unlimited fuel; it also fixes a wrap-around
 bug in the old 8-bit round stamp that let a fight call come back exactly 256 rounds later.
 
+## Shop Trips (default: 150 gold)
+
+`SHOP_RECALL_GOLD` (`states/recall.cpp`): recall to shop once a champion holds 150 gold, unless an
+enemy champion is in view within 8 tiles, something hit us since last turn, or we stand at our
+live farm camp (shopping happens on any turn spent on spawn). From the team Discord: The Mania
+recall as soon as they can buy an emblem.
+
+| Variant vs v8 | Head-to-head (34) | Regular bots (204 paired) | Top ladder (site, paired) |
+|---|---|---|---|
+| 150 gold (adopted) | 27/34 (p<0.01), +268/game | 196 vs 190 wins, +79/game (p<0.001) | 50 games: +74/game (t=2.18, p~0.03), 30 better / 15 worse, wins 2 vs 1 |
+| next emblem affordable | 24/34 (p=0.02) | +45/game (p=0.04) | not run |
+| 100 / 200 / 300 gold | 20 / 20 / 19 of 34 | +62 / +61 / +22 per game | not run |
+| trip + Jungle emblem first (plan 14) | 24/34 | +70/game | not run |
+| Jungle first, no trips | 18/34 | -2/game | not run |
+
+Top ladder = exact rematches (same opponent versions and maps) of 10 match groups vs the top ten
+(Fish, Mite, The Mania, Sneaky Bush Campers, Nyxius, procless, Univardisty of Shingtonwash,
+new team(4), Boost, Nyx), traced v8 vs traced trip build.
+
+With trips on, the recall health threshold was swept (vs trips at 35%): 20% worse (-37/game,
+p=0.02); 25/30/40/45% no difference. Left at 35% (`RECALL_HP`).
+
+## Capture Stayer, Fight Value Check, Camp Crowding (tested, off)
+
+vs v8: head-to-head of 34, then regular bots (204 paired, margin per game).
+- `CAPTURE_STAYER` (one champion captures a cleared group, the rest move on): closest 17/34,
+  -13 (n.s.); lowest health 14/34, -130 (p<0.001); weakest damage 9/34 (p=0.01), -210 (p<0.001).
+- `FIGHT_EV` (fight only if P(win) x (enemy gems + kill value) > P(lose) x (2 x our gems + death
+  cost); P from the team-fight call's measured accuracy): before starting 14/34, -62 (p<0.001);
+  every turn 12/34, -91 (p<0.001).
+- `CAMP_CROWD_ROUNDS` (enough of us at the team camp to kill it in K rounds: others go elsewhere):
+  K=8 19/34, +29 (p=0.15); K=15 16/34, +20 (p=0.38).
+
 ## Shop
 
 Default (`SHOP_PLAN` 13, `states/shop.h`): one emblem each of Power (main stat), Durability health

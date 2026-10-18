@@ -344,6 +344,24 @@ std::optional<int> farm_target(MatchData& match) {
         return match.farm_target;
     }
     match.farm_target = (solo.group && solo.value >= team_value) ? solo.group : team_target;
+    // Enough of us at the team target already for a camp this strong: farm elsewhere.
+    if constexpr (constants::kCampCrowdRounds > 0) {
+        if (match.farm_target && match.farm_target == team_target && dps > 0) {
+            const auto& g = match.camp_groups[static_cast<std::size_t>(*team_target)];
+            const auto r = static_cast<std::uint32_t>(constants::kHelpRadius);
+            if (g.centre.chebyshev_distance(me.position()) > r) {
+                const int needed = std::max(1, static_cast<int>(g.design_health / (dps * static_cast<float>(constants::kCampCrowdRounds)) + 0.999f));
+                cambc::vec2 crowd[8];
+                const int n = collect_mates(crowd);
+                int there = 0;
+                for (int k = 0; k < n; ++k) there += crowd[k].chebyshev_distance(g.centre) <= r;
+                if (there >= needed) {
+                    const auto other = best_camp(match, field, Team{dps, 1}, std::nullopt, starved, team_target);
+                    if (other.group) match.farm_target = other.group;
+                }
+            }
+        }
+    }
     return match.farm_target;
 }
 
