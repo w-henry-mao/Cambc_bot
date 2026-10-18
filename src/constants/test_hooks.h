@@ -91,6 +91,9 @@
 #endif
 // One champion collects a camp's reward while the others move on (false: everyone at the camp
 // stands on it and the reward is split, the old behaviour, for A/B tests).
+#ifndef TAVI_FOCUS
+#define TAVI_FOCUS false
+#endif
 #ifndef COLLECTOR_PREFER_RANGED
 #define COLLECTOR_PREFER_RANGED false
 #endif

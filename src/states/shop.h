@@ -29,7 +29,8 @@ inline EmblemPlan emblem_plan(const cambc::champion& me) {
     using Step = EmblemPlan::Step;
     const auto type = me.champion_name();
     const bool focus = type == ct::cassi || type == ct::stellar || type == ct::prism || type == ct::ren
-        || ((SHOP_PLAN == 13 || SHOP_PLAN == 14) && type == ct::willow);
+        || ((SHOP_PLAN == 13 || SHOP_PLAN == 14) && type == ct::willow)
+        || (TAVI_FOCUS && type == ct::tavi);   // test: Tavi's damage is its spell
     const Step power = focus ? Step{it::power_shard_of_focus, it::power_emblem_of_focus}
                              : Step{it::power_shard_of_strength, it::power_emblem_of_strength};
     const Step jungle = focus ? Step{it::jungle_shard_of_focus, it::jungle_emblem_of_focus}

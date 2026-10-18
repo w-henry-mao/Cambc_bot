@@ -391,6 +391,13 @@ nearest live camp's distance, can-move and live camps seen (`D`). 20 local games
   to 963 per game) but not the damage (team monster damage about the same); head-to-head 12/34,
   regular bots -14/game (p=0.43). Off.
 
+Items, same 30 site games (per game, us / them): gold spent Stellar 374 / 875, Cassi 289 / 593,
+Issac 606 / 781, Ren 670 / 1225, Ryth 579 / 661. Same build shape (mostly Power emblems of the main
+stat; they buy fewer health emblems and some Jungle emblems), about twice the gold. Their Tavi
+buys focus (3.3 Power emblems of focus a game); ours strength and Bruiser health.
+- `TAVI_FOCUS` (Tavi on the focus build): head-to-head 16/34, regular bots +6/game (p=0.63);
+  Tavi's own monster damage fell (16.2k vs 19.3k a game). Off.
+
 ## Route Planning (tested, off)
 
 The draft computes walking distances between all camp group centres (`core/group_routes.h`; one
