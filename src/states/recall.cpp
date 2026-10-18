@@ -12,6 +12,7 @@
 #include "../nav/pathfinding.h"
 #include "../nav/safe_recall.h"
 #include "../skills/dash_move.h"
+#include "../skills/casting.h"
 #include "../core/geometry.h"
 #include "../constants/brain_constants.h"
 #include "../constants/state_constants.h"
@@ -93,6 +94,25 @@ int RecallState::score(const TurnContext& ctx) {
     if (constants::kShopRecall && shop_trip_due(ctx)) return constants::kShopRecallScore;
     return 0;
 }
+namespace {
+// constants::kRetreatFire: while walking away to recall, still use the turn on the nearest enemy:
+// an ability if one reaches it, and (melee only, where walking and attacking do not conflict) a
+// basic attack if it is adjacent.
+void retreat_fire() {
+    if constexpr (!constants::kRetreatFire) return;
+    auto& me = cambc::self();
+    const cambc::champion* nearest = nullptr;
+    std::uint32_t best = 0;
+    for (const auto& e : roster_enemies()) {
+        if (!in_view(e)) continue;
+        const auto d = e.position().chebyshev_distance(me.position());
+        if (!nearest || d < best) { nearest = &e; best = d; }
+    }
+    if (!nearest) return;
+    cast_at(*nearest);
+    if (me.attack_range() <= 1 && nearest->is_visible() && nearest->health() > 0) attack_with_reset(*nearest);
+}
+}
 StateResult RecallState::execute(TurnContext& ctx, BotMemory& memory) {
     auto& me = cambc::self();
     if (on_spawn()) {
@@ -126,6 +146,7 @@ StateResult RecallState::execute(TurnContext& ctx, BotMemory& memory) {
                     if constexpr (RECALL_TRACE) std::cout << "RECALL_AFTER_MOVE failed " << e.what() << '\n';
                 }
             }
+            retreat_fire();
             return StateResult::Continue;
         }
     } else {
@@ -138,6 +159,7 @@ StateResult RecallState::execute(TurnContext& ctx, BotMemory& memory) {
         }
     }
     move_towards_closest(cambc::map::spawn_region(cambc::team::ally));
+    retreat_fire();
     return StateResult::Continue;
 }
 RecallState recall_state_instance;

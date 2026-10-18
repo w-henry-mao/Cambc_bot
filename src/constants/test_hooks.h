@@ -209,6 +209,10 @@
 #ifndef FINISH_KILL
 #define FINISH_KILL false
 #endif
+// Use abilities / melee attacks on the nearest enemy while walking away to recall (states/recall.cpp).
+#ifndef RETREAT_FIRE
+#define RETREAT_FIRE false
+#endif
 // Idle recall threshold (constants/state_constants.h kIdleRecallHpFraction).
 #ifndef IDLE_RECALL_HP
 #define IDLE_RECALL_HP 1.0f

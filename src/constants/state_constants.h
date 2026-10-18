@@ -37,6 +37,8 @@ constexpr bool kEarlyRetreat = EARLY_RETREAT;
 // health, keep attacking an enemy in attack range below kFinishKillBelow health and below ours.
 constexpr bool kFocusFire = FOCUS_FIRE;
 constexpr bool kFinishKill = FINISH_KILL;
+// While walking away to recall, cast at / (melee) attack the nearest enemy.
+constexpr bool kRetreatFire = RETREAT_FIRE;
 constexpr float kFinishKillBelow = 0.25f;
 constexpr int kEarlyRetreatRadius = 8;
 constexpr int kWardReplaceDist = 10;
