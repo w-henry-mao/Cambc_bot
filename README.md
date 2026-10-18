@@ -321,6 +321,19 @@ vs current main, regular bots 204 paired (kills / deaths per game change), head-
   identical, 5 better / 9 worse; wins 1 vs 2. Not adopted: the local gain against our own
   bots does not carry over to the top teams.
 
+Top ladder, traced (`STATE_TRACE` + `FIGHT_TRACE`), 30 games against the top six teams (1 win). A
+fight is a run of our attack-state turns with gaps of 5 rounds or less.
+- Deaths 284 us vs 67 them, 92 of ours outside any fight (caught while farming or walking).
+  Contest alone: 136 vs 6 (53 outside fights), the same snowball as locally.
+- 9 games had no deaths on either side (ambush, rows, expanse) and we still lost them 460-790
+  to 1016-1056. On most maps the gap is how fast we farm, not how we fight.
+- 223 fights: we start 80% of them; fights the enemy starts cost us fewer deaths (0.75 vs 0.92).
+- More fighters make it worse: 1 of us 0.60 deaths per fight, 2 of us 1.09, 4 of us 1.87, and
+  4+ enemies 1.57. Even-number fights 0.77 of ours to 0.22 of theirs. Fights longer than 10 rounds
+  0.62 kills for 1.21 deaths. Fights after round 1000 (19): 1.32 deaths, no kills.
+- Our health at the start barely matters (90%+ start: 1.08 deaths per fight): we lose fights at
+  full health, so the problem is their damage (builds and focus), not our recall timing.
+
 ## Capture Stayer, Fight Value Check, Camp Crowding (tested, off)
 
 vs v8: head-to-head of 34, then regular bots (204 paired, margin per game).
