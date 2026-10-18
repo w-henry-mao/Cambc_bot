@@ -18,6 +18,9 @@ struct CachedCampGroup {
     std::uint32_t gem_value = 0;
     float design_health = 0;                       // all its camps at full health
     float design_strength = 0;                     // their combined damage per round
+    // constants::kSeqCampDamage: damage taken killing the camps weakest first (damage falls as camps
+    // die), for one unit of damage per round on our side; divide by our damage per round.
+    float seq_damage_unit = 0;
     std::uint32_t respawn_ready_round = 0;         // last seen respawn timer as an absolute round
     bool reward_waiting = false;                   // last seen dead with the reward not captured
     std::uint32_t max_respawn = 0;                 // configured respawn timer

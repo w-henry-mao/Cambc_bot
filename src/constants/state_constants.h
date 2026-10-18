@@ -47,6 +47,8 @@ constexpr float kRoundDiscount = ROUND_DISCOUNT;   // 0.93 unless a test build o
 constexpr float kGoldWeight = GOLD_WEIGHT;         // 0.25 unless a test build overrides
 // Round discount on monolith-only maps (gem_starved); kRoundDiscount there unless overridden.
 constexpr float kStarvedRoundDiscount = STARVED_ROUND_DISCOUNT;
+// Camp danger in camp_value: camps killed weakest first, damage falling as they die (SEQ_CAMP_DAMAGE).
+constexpr bool kSeqCampDamage = SEQ_CAMP_DAMAGE;
 // Only camps within this walk are considered (the search stops there).
 constexpr int kCampSearchRange = 60;
 // Switch farm target only for a camp worth this much more than the current one.

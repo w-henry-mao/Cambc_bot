@@ -269,6 +269,14 @@ single monoliths, far right), stampede_center (the 12-camp herd moved to the cen
 12 vs 10. 0.97 helps only on the original stampede; neither gem-source type nor location predicts
 it, so no per-class discount rule.
 
+Why stampede likes 0.97 (traces vs starter-cpp): with 0.93 the team first targets the herd at
+round 169 and spends 0-44% of farm turns on it (10,720 gold from clusters, done round 1614); with
+0.97 it targets the herd from round 13, 80-90% of the time (3,370 gold, done round 1051).
+`SEQ_CAMP_DAMAGE` (camp danger with camps killed weakest first, damage falling as they die) did not
+rescue 0.97 on the other maps: over the 6 monolith-type maps x 14, main 71/84, 0.97+seq+limit 3
+52/84, limit 6 46/84 (contest and contest_side still collapse). The seq model alone vs main:
+head-to-head 18/34, regular bots +7/game (p=0.58). Off.
+
 ## Capture Stayer, Fight Value Check, Camp Crowding (tested, off)
 
 vs v8: head-to-head of 34, then regular bots (204 paired, margin per game).

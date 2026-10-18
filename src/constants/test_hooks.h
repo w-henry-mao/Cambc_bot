@@ -186,6 +186,10 @@
 #ifndef MAP_DUMP
 #define MAP_DUMP false
 #endif
+// Camp danger with camps killed weakest first (states/farm.cpp camp_value; init/map_snapshot.cpp).
+#ifndef SEQ_CAMP_DAMAGE
+#define SEQ_CAMP_DAMAGE false
+#endif
 // Idle recall threshold (constants/state_constants.h kIdleRecallHpFraction).
 #ifndef IDLE_RECALL_HP
 #define IDLE_RECALL_HP 1.0f

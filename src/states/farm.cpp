@@ -59,8 +59,9 @@ std::optional<float> camp_value(const CachedCampGroup& group, int walk, const Te
         if (team.dps <= 0) return std::nullopt;
         kill = static_cast<int>(group.design_health / team.dps) + 1;
         // Camps hit one champion at a time; skip camps that would hurt us too much.
-        if (group.design_strength * static_cast<float>(kill) / static_cast<float>(team.count) > max_damage_share * my_health)
-            return std::nullopt;
+        const float taken = constants::kSeqCampDamage ? group.seq_damage_unit / team.dps / static_cast<float>(team.count)
+                                                      : group.design_strength * static_cast<float>(kill) / static_cast<float>(team.count);
+        if (taken > max_damage_share * my_health) return std::nullopt;
     }
     const float reward = static_cast<float>(group.gem_value) + constants::kGoldWeight * static_cast<float>(group.gold_value);
     return reward * discount(walk + kill + cambc::constants::capture_time);

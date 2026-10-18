@@ -1,5 +1,8 @@
 #include <cambc.h>
 #include <utility>
+#include <algorithm>
+#include <vector>
+#include "../constants/test_hooks.h"
 #include "../core/geometry.h"
 #include "../core/match_data.h"
 #include "stages.h"
@@ -24,6 +27,13 @@ bool stage_map_snapshot(MatchData& match_data) {
             const auto stats = camp.base_stats();
             cached.design_health += stats.base_health;
             cached.design_strength += stats.base_strength;
+        }
+        if constexpr (SEQ_CAMP_DAMAGE) {
+            std::vector<std::pair<float, float>> camps;   // (health, strength), weakest first
+            for (const auto& camp : group) camps.emplace_back(camp.base_stats().base_health, camp.base_stats().base_strength);
+            std::sort(camps.begin(), camps.end());
+            float remaining = cached.design_strength;
+            for (const auto& [hp, str] : camps) { cached.seq_damage_unit += remaining * hp; remaining -= str; }
         }
         cached.view = std::move(group);
         match_data.camp_groups.push_back(std::move(cached));
