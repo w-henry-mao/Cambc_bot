@@ -432,6 +432,10 @@ their spawn, mostly at the gold groups next to it, two of them carrying a herd c
   Coders 2 wins of 5 (was 0: stampede 1260:180, collision 1036:484); nine mid-ladder groups 45
   games, -45/game (t=-0.76), wins 26 vs 28. Contest got worse in all three mid-ladder groups that
   had it (800:400 to 0:1000, 1000:0 to 800:200, 600:0 to 200:400). Off.
+  Plan 3 (as 2, but not while the map counts as gem-starved): the gem-starved check is per
+  champion and per round (from current damage and health), so it switches off on contest once
+  champions are strong and contest still changed (800:400 to 0:1000, 600:0 to 200:400). Eight
+  mid-ladder groups, 40 games: -23/game (t=-0.35), wins 22 vs 23; Invincible +788, 1 win vs 0. Off.
 - `FIGHT_GAIN_PLAN` (don't start a fight with an enemy carrying no gems near its spawn; fight back
   if hit): 1 = within 12 of its spawn: 11/34 (p=0.06), -10/game (p=0.54); 2 = on its half: 11/34,
   -38/game (p=0.07). Our deaths per game rise (6.0 to 6.6 / 8.4), kills fall. Off.
