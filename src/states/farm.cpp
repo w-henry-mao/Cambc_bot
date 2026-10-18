@@ -50,6 +50,28 @@ float discount(int rounds) {
 struct Team { float dps = 0; int count = 0; };
 float my_dps() { auto& me = cambc::self(); return me.strength() + constants::kAbilityDpsPerFocus * me.focus(); }
 
+// Gold's weight against gems in camp values. Default: constants::kGoldWeight all game. Test plans
+// (constants::kGoldDecayPlan) value early gold more, since it buys damage for the rest of the game:
+// 1: (winning gems - enemy gems banked) / kGoldDecayScale; 2: kGoldDecayStart x (1 - round /
+// kGoldDecayRounds). Neither goes below kGoldWeight.
+float gold_weight() {
+    if constexpr (constants::kGoldDecayPlan == 1) {
+        // One engine query per round (this runs for every camp group scored).
+        static int cached_round = -1;
+        static float cached = constants::kGoldWeight;
+        if (cambc::round_number() != cached_round) {
+            cached_round = cambc::round_number();
+            const float left = static_cast<float>(cambc::constants::winning_gems) - static_cast<float>(cambc::global_submitted_gems(cambc::team::enemy));
+            cached = std::max(constants::kGoldWeight, left / constants::kGoldDecayScale);
+        }
+        return cached;
+    } else if constexpr (constants::kGoldDecayPlan == 2) {
+        const float frac = 1.0f - static_cast<float>(cambc::round_number()) / constants::kGoldDecayRounds;
+        return std::max(constants::kGoldWeight, constants::kGoldDecayStart * frac);
+    }
+    return constants::kGoldWeight;
+}
+
 // value = (gems + gold x weight) x discount ^ (walk + kill + capture); nullopt if not worth it.
 std::optional<float> camp_value(const CachedCampGroup& group, int walk, const Team& team, float my_health,
                                 float max_damage_share = constants::kMaxCampDamageShare) {
@@ -65,7 +87,7 @@ std::optional<float> camp_value(const CachedCampGroup& group, int walk, const Te
                                                       : group.design_strength * static_cast<float>(kill) / static_cast<float>(team.count);
         if (taken > max_damage_share * my_health) return std::nullopt;
     }
-    const float reward = static_cast<float>(group.gem_value) + constants::kGoldWeight * static_cast<float>(group.gold_value);
+    const float reward = static_cast<float>(group.gem_value) + gold_weight() * static_cast<float>(group.gold_value);
     return reward * discount(walk + kill + cambc::constants::capture_time);
 }
 
@@ -89,7 +111,7 @@ float next_camp_bonus(const MatchData& match, int from, int finish, const Team& 
         if (respawn_ready(group) > round + static_cast<std::uint32_t>(arrive)) continue;
         const int kill = static_cast<int>(group.design_health / team.dps) + 1;
         if (group.design_strength * static_cast<float>(kill) / static_cast<float>(team.count) > max_damage_share * my_health) continue;
-        const float reward = static_cast<float>(group.gem_value) + constants::kGoldWeight * static_cast<float>(group.gold_value);
+        const float reward = static_cast<float>(group.gem_value) + gold_weight() * static_cast<float>(group.gold_value);
         const float value = reward * discount(arrive + kill + cambc::constants::capture_time);
         if (depth == 1) { best = std::max(best, value); continue; }
         // Deeper routes (constants::kRouteDepth > 1): the best kRouteBranch next camps by their own

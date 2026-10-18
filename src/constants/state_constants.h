@@ -60,6 +60,12 @@ constexpr int kTributeIfAltarWithin = 8;
 // Camp value: (gems + gold x kGoldWeight) x kRoundDiscount ^ (walk + kill + capture rounds).
 constexpr float kRoundDiscount = ROUND_DISCOUNT;   // 0.93 unless a test build overrides (README, Farming)
 constexpr float kGoldWeight = GOLD_WEIGHT;         // 0.25 unless a test build overrides
+// Decaying gold weight (A/B test, states/farm.cpp gold_weight): 0 off, 1 by enemy gems banked,
+// 2 by round.
+constexpr int kGoldDecayPlan = GOLD_DECAY_PLAN;
+constexpr float kGoldDecayScale = GOLD_DECAY_SCALE;     // plan 1: weight = gems the enemy still needs / this
+constexpr float kGoldDecayStart = GOLD_DECAY_START;     // plan 2: weight at round 0
+constexpr float kGoldDecayRounds = GOLD_DECAY_ROUNDS;   // plan 2: round the decay reaches 0
 // Round discount on monolith-only maps (gem_starved); kRoundDiscount there unless overridden.
 constexpr float kStarvedRoundDiscount = STARVED_ROUND_DISCOUNT;
 // Camp danger in camp_value: camps killed weakest first, damage falling as they die (SEQ_CAMP_DAMAGE).

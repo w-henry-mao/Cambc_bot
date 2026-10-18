@@ -242,6 +242,18 @@
 #ifndef COMMIT_TARGET
 #define COMMIT_TARGET 0.0f
 #endif
+#ifndef GOLD_DECAY_PLAN
+#define GOLD_DECAY_PLAN 0
+#endif
+#ifndef GOLD_DECAY_SCALE
+#define GOLD_DECAY_SCALE 600.0f
+#endif
+#ifndef GOLD_DECAY_START
+#define GOLD_DECAY_START 1.0f
+#endif
+#ifndef GOLD_DECAY_ROUNDS
+#define GOLD_DECAY_ROUNDS 500.0f
+#endif
 #ifndef GOLD_WEIGHT
 #define GOLD_WEIGHT 0.25f
 #endif

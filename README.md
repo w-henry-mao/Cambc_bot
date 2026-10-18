@@ -398,6 +398,17 @@ buys focus (3.3 Power emblems of focus a game); ours strength and Bruiser health
 - `TAVI_FOCUS` (Tavi on the focus build): head-to-head 16/34, regular bots +6/game (p=0.63);
   Tavi's own monster damage fell (16.2k vs 19.3k a game). Off.
 
+## Decaying Gold Weight (tested, off)
+
+`GOLD_DECAY_PLAN` (team doc idea: gold buys damage for the rest of the game, so weight it more
+early): 1 = (1000 - enemy gems banked) / scale, 2 = start x (1 - round / rounds); never below
+`kGoldWeight` 0.25. vs main (head-to-head of 34; regular bots 204 paired; team gold earned and
+monster damage per game vs main's 4962 and 74k):
+- plan 1, scale 600: 9/34 (p=0.01), -70/game (p<0.001); 5994 gold, 84k damage.
+- plan 1, scale 1200: 12/34, -32/game (p=0.04); 5617, 81k.
+- plan 2, 1.0 over 500 rounds: 13/34, -25/game (p=0.14); 5184, 77k.
+More gold and damage, fewer gems banked, monotone in the weight.
+
 ## Route Planning (tested, off)
 
 The draft computes walking distances between all camp group centres (`core/group_routes.h`; one
