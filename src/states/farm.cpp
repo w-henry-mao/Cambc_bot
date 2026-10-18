@@ -28,6 +28,8 @@ constexpr int kUnreached = 65535;
 // Monolith-only maps (gem_starved, set each round by farm_target) may use their own discount
 // (constants::kStarvedRoundDiscount): their gems sit behind long kills.
 bool g_starved_map = false;
+// Gem-starved as first judged in the match (base stats), fixed for the rest of it (kEnemySidePlan 4).
+bool g_starved_at_start = false;
 float discount(int rounds) {
     static const auto table = [] {
         std::array<float, 512> powers{};
@@ -92,12 +94,14 @@ std::optional<float> camp_value(const CachedCampGroup& group, int walk, const Te
     // Gold-only groups on the enemy's side (constants::kEnemySidePlan): little to gain, and the
     // enemy fights there next to its spawn. 1: closer to their spawn than ours; 2: within
     // kEnemySideRadius of their spawn; 3: as 2, except on gem-starved maps (contest, stampede),
-    // where gold is what makes the monoliths killable.
+    // where gold is what makes the monoliths killable; 4: as 3 with the starved judgement fixed at
+    // the start of the match.
     if constexpr (constants::kEnemySidePlan > 0) {
         if (group.gem_value == 0) {
             if (constants::kEnemySidePlan == 1 && group.enemy_spawn_dist < group.own_spawn_dist) return std::nullopt;
             if (constants::kEnemySidePlan == 2 && group.enemy_spawn_dist <= constants::kEnemySideRadius) return std::nullopt;
             if (constants::kEnemySidePlan == 3 && !g_starved_map && group.enemy_spawn_dist <= constants::kEnemySideRadius) return std::nullopt;
+            if (constants::kEnemySidePlan == 4 && !g_starved_at_start && group.enemy_spawn_dist <= constants::kEnemySideRadius) return std::nullopt;
         }
     }
     int kill = 0;
@@ -386,6 +390,8 @@ std::optional<int> farm_target(MatchData& match, bool force) {
     // normal limit (normal maps have wolves, elks or gem clusters; stampede and contest only monoliths).
     const bool starved = gem_starved(match, Team{dps, 1}, me.max_health());
     g_starved_map = starved;
+    static bool starved_judged = false;
+    if (!starved_judged) { starved_judged = true; g_starved_at_start = starved; }
     // Capture stayer: a cleared group of ours waiting for capture is kept only by its stayer;
     // everyone else (and the team target) moves on.
     std::optional<int> capture_exclude;
