@@ -374,6 +374,23 @@ camp. Of farm-to-farm target changes, 34% are on arriving at a camp a teammate j
   gold did not move (Stellar earned 779 / 774 / 794 per game, Cassi 663 / 661 / 685 at 3 / 6 / 8),
   so the collector is not why our casters earn less; still open.
 
+## Melee Camp Time and Caster Gold (tested, off)
+
+`STATE_TRACE` now ends with the farm action (`A`: H hit, C capturing, W waiting for a respawn,
+A approaching a live group, S stepping off, E earlier return), gold (`G`) and, for A/W/C, the
+nearest live camp's distance, can-move and live camps seen (`D`). 20 local games (as above):
+- Melee champions hit camps in 13.5-14.7% of rounds, casters 20-22% (the site ratio is the same,
+  0.65). Within 3 tiles of the target, melee are approaching in ~25% of rounds (casters ~10%): the
+  nearest live camp is 2-3 tiles away and they can move, so it is the step to the next camp of the
+  group at range 1, not a stuck path. `REACH_CAMP` (walk to the closest free tile in attack range
+  of a live camp, not onto the spawn tiles) left that at 23%; vs main head-to-head 19/34, regular
+  bots +15/game (p=0.50). Off.
+- Gold is almost all capture rewards (per game: Ren 884, Issac 822, Stellar 578, Cassi 540; kill
+  gold 20-55). Teammates leave a capture only once the chosen collector stands on a spawn tile, and
+  casters get there last. `COLLECTOR_PREFER_RANGED` moves the gold (Stellar 779 to 1074, Cassi 663
+  to 963 per game) but not the damage (team monster damage about the same); head-to-head 12/34,
+  regular bots -14/game (p=0.43). Off.
+
 ## Route Planning (tested, off)
 
 The draft computes walking distances between all camp group centres (`core/group_routes.h`; one

@@ -20,6 +20,7 @@
 #include "../skills/casting.h"
 #include "../constants/brain_constants.h"
 #include "../constants/state_constants.h"
+#include "../constants/test_hooks.h"
 namespace {
 constexpr int kUnreached = 65535;
 
@@ -538,7 +539,7 @@ bool teammate_collects(const CachedCampGroup& group) {
     auto& me = cambc::self();
     const auto& allies = roster_allies();
     const cambc::champion* collector = nullptr;
-    std::tuple<int, int, int> best{};
+    std::tuple<int, int, int, int> best{};
     for (int i = 0; i < static_cast<int>(allies.size()); ++i) {
         const auto& a = allies[static_cast<std::size_t>(i)];
         if (!(a == me) && !in_view(a)) continue;
@@ -547,7 +548,10 @@ bool teammate_collects(const CachedCampGroup& group) {
         if (d > constants::kCollectorRadius) continue;
         const auto shards = item_shards(a);
         if (!shards) continue;
-        const std::tuple<int, int, int> key{*shards, d, i};
+        // constants::kCollectorPreferRanged: ranged champions first (they stand back while the camps
+        // die, so the melee ones were usually on the spawn tiles when the capture finished).
+        const int melee = constants::kCollectorPreferRanged && a.attack_range() <= 1 ? 1 : 0;
+        const std::tuple<int, int, int, int> key{melee, *shards, d, i};
         if (!collector || key < best) { collector = &a; best = key; }
     }
     return collector && !(*collector == me) && group.spawn_tiles.is_set(collector->position());
@@ -564,6 +568,7 @@ void step_off(const CachedCampGroup& group) {
 }
 
 StateResult FarmState::execute(TurnContext& ctx, BotMemory& memory) {
+    g_farm_action = 'E';
     auto& me = cambc::self();
     auto& match = *ctx.match_data;
     if (!farm_target(match)) return StateResult::Failed;
@@ -642,15 +647,51 @@ StateResult FarmState::execute(TurnContext& ctx, BotMemory& memory) {
         if (camp.is_visible() && camp.health() > 0 && me.attack_tiles().is_set(camp.position()) && (!weakest || camp.health() < weakest->health()))
             weakest = &camp;
     if (weakest) {
-        cast_at(*weakest);
-        attack_with_reset(*weakest);
+        const bool cast = cast_at(*weakest);
+        const bool hit = attack_with_reset(*weakest);
+        g_farm_action = cast || hit ? 'H' : 'h';
         return StateResult::Continue;
     }
     if (group.spawn_tiles.is_set(me.position())) {
-        if (group.reward_waiting) return StateResult::Continue;   // capturing
+        if (group.reward_waiting) { g_farm_action = 'C'; return StateResult::Continue; }   // capturing
         // Captured already: an occupied spawn tile stops the whole group respawning, so step off.
+        g_farm_action = 'S';
         step_off(group);
         return StateResult::Continue;
+    }
+    g_farm_action = respawn_ready(group) > static_cast<std::uint32_t>(cambc::round_number()) && !group.reward_waiting ? 'W' : group.reward_waiting ? 'C' : 'A';
+    if constexpr (STATE_TRACE) {
+        g_farm_detail[0] = g_farm_detail[2] = -1;
+        g_farm_detail[1] = me.can_move();
+        int live = 0;
+        for (const auto& camp : *group.view)
+            if (camp.is_visible() && camp.health() > 0) {
+                ++live;
+                const int d = static_cast<int>(camp.position().chebyshev_distance(me.position()));
+                if (g_farm_detail[0] < 0 || d < g_farm_detail[0]) g_farm_detail[0] = d;
+            }
+        g_farm_detail[2] = live;
+    }
+    // Reach a live camp (constants::kReachCamp): walk to the closest free tile from which one is
+    // in attack range, instead of onto the spawn tiles (most of which the camps stand on; melee
+    // champions arrived next to the group but out of reach a quarter of the time).
+    if constexpr (constants::kReachCamp) {
+        if (!group.reward_waiting) {
+            cambc::bitboard stand;
+            stand.clear();
+            cambc::bitboard camps;
+            camps.clear();
+            for (const auto& camp : *group.view)
+                if (camp.is_visible() && camp.health() > 0) {
+                    stand.draw_chebyshev(camp.position(), static_cast<float>(me.attack_range()));
+                    camps.set(camp.position());
+                }
+            stand &= ~match.static_blockers & ~camps;
+            if (!stand.is_empty()) {
+                move_towards_closest(stand);
+                return StateResult::Continue;
+            }
+        }
     }
     // While the group respawns, wait next to its spawn tiles: standing on one would hold the respawn.
     // Otherwise walk onto them (camps of a live group may only be in reach from the spawn tiles of
@@ -664,3 +705,5 @@ StateResult FarmState::execute(TurnContext& ctx, BotMemory& memory) {
     return StateResult::Continue;
 }
 FarmState farm_state_instance;
+char g_farm_action = '-';
+int g_farm_detail[3] = {-1, -1, -1};

@@ -162,6 +162,9 @@ void Bot::play_turn() {
                           << (ready > now ? ready - now : 0) << ' ' << old.reward_waiting;
             }
             last_target = t;
+            std::cout << " A" << g_farm_action << " G" << me.gold_count() << " D" << g_farm_detail[0] << ',' << g_farm_detail[1] << ',' << g_farm_detail[2];
+            g_farm_action = '-';
+            g_farm_detail[0] = g_farm_detail[1] = g_farm_detail[2] = -1;
         }
         std::cout << '\n';
     }

@@ -74,6 +74,8 @@ constexpr float kCommitTarget = COMMIT_TARGET;
 // Route lookahead (A/B test, 0 = off): the best K camps by their own value also count the best
 // camp to take after them, using the draft's group distance table (core/group_routes.h).
 constexpr int kRouteLookahead = ROUTE_LOOKAHEAD;
+// Reach camp (A/B test): approach a live group's camps to attack range, not its spawn tiles.
+constexpr bool kReachCamp = REACH_CAMP;
 constexpr int kRouteDepth = ROUTE_DEPTH;   // camps counted after the first (1: the next one only)
 constexpr int kRouteBranch = 3;             // next camps explored per level when kRouteDepth > 1
 // Skip a camp if the damage it would deal while we kill it, shared among us and the allies near
@@ -126,6 +128,7 @@ constexpr std::uint32_t kOpeningMaxRounds = 200;
 // captured; if its reward is still waiting kCollectorGraceRounds after the capture should have
 // finished, the group is a normal target again.
 constexpr bool kSingleCollector = SINGLE_COLLECTOR;
+constexpr bool kCollectorPreferRanged = COLLECTOR_PREFER_RANGED;   // A/B test: ranged champions collect first
 constexpr int kCollectorRadius = COLLECTOR_RADIUS;   // 3 unless a test build overrides
 constexpr int kEmblemShards = 5;
 constexpr std::uint32_t kCollectorGraceRounds = 3;
