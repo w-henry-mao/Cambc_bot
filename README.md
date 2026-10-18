@@ -391,6 +391,9 @@ nearest live camp's distance, can-move and live camps seen (`D`). 20 local games
   to 963 per game) but not the damage (team monster damage about the same); head-to-head 12/34,
   regular bots -14/game (p=0.43). Off.
 
+`tools/trace_report.py` (states, actions, trips, switches, gold) prints these tables from any
+`STATE_TRACE` batch.
+
 Items, same 30 site games (per game, us / them): gold spent Stellar 374 / 875, Cassi 289 / 593,
 Issac 606 / 781, Ren 670 / 1225, Ryth 579 / 661. Same build shape (mostly Power emblems of the main
 stat; they buy fewer health emblems and some Jungle emblems), about twice the gold. Their Tavi
@@ -407,6 +410,8 @@ monster damage per game vs main's 4962 and 74k):
 - plan 1, scale 600: 9/34 (p=0.01), -70/game (p<0.001); 5994 gold, 84k damage.
 - plan 1, scale 1200: 12/34, -32/game (p=0.04); 5617, 81k.
 - plan 2, 1.0 over 500 rounds: 13/34, -25/game (p=0.14); 5184, 77k.
+- plan 3 (team doc: weight by our emblems): 0.75 until our planned emblems are bought, then 0.25:
+  15/34, -28/game (p=0.04); 5216, 76k. 1.5: 11/34 (p=0.06), -20/game (p=0.30); 5303, 77k.
 More gold and damage, fewer gems banked, monotone in the weight.
 Top ladder (50 paired site rematches of v17's games, same opponent versions and maps), plan 2:
 -20/game (t=-1.14), 9 better / 20 worse / 21 identical, wins 1 vs 2. Not adopted.

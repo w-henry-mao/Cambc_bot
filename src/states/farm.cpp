@@ -5,6 +5,7 @@
 #include <tuple>
 #include <vector>
 #include "farm.h"
+#include "shop.h"
 #include "../comms/shared_memory.h"
 #include "../comms/team_comms.h"
 #include "../comms/ally_positions.h"
@@ -53,7 +54,8 @@ float my_dps() { auto& me = cambc::self(); return me.strength() + constants::kAb
 // Gold's weight against gems in camp values. Default: constants::kGoldWeight all game. Test plans
 // (constants::kGoldDecayPlan) value early gold more, since it buys damage for the rest of the game:
 // 1: (winning gems - enemy gems banked) / kGoldDecayScale; 2: kGoldDecayStart x (1 - round /
-// kGoldDecayRounds). Neither goes below kGoldWeight.
+// kGoldDecayRounds); 3: kGoldDecayStart until our planned emblems are bought. None goes below
+// kGoldWeight.
 float gold_weight() {
     if constexpr (constants::kGoldDecayPlan == 1) {
         // One engine query per round (this runs for every camp group scored).
@@ -63,6 +65,16 @@ float gold_weight() {
             cached_round = cambc::round_number();
             const float left = static_cast<float>(cambc::constants::winning_gems) - static_cast<float>(cambc::global_submitted_gems(cambc::team::enemy));
             cached = std::max(constants::kGoldWeight, left / constants::kGoldDecayScale);
+        }
+        return cached;
+    } else if constexpr (constants::kGoldDecayPlan == 3) {
+        // Until our planned emblems are finished (states/shop.h), then the normal weight. Item
+        // counts are read once per round.
+        static int cached_round = -1;
+        static float cached = constants::kGoldWeight;
+        if (cambc::round_number() != cached_round) {
+            cached_round = cambc::round_number();
+            cached = next_emblem_gold(cambc::self()) ? constants::kGoldDecayStart : constants::kGoldWeight;
         }
         return cached;
     } else if constexpr (constants::kGoldDecayPlan == 2) {
