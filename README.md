@@ -300,6 +300,25 @@ contest, whose long games amplify everything) and do not line up with a map feat
 the one feature-shaped split (monolith-only maps) failed on held-out maps. Shop trips were the one
 switch positive on nearly every map (14 of 17). No per-class rule adopted.
 
+## Fight Execution
+
+`FIGHT_TRACE` logs every attack-state turn (target and health, our health, distance, allies within
+5, enemies within 8, support / cast / hit / walked). Contest vs opp-caller reproduces the top-team
+contest losses locally (main side A: 0 gems, 14 kills, 121 deaths; side B wins 1000:0, so the
+matchup snowballs on early fights). In that game: 63% of fight turns had more enemies within 8 than
+us within 5 (typically 5 vs 1-4); 48% of our health was lost in the recall state, 85% of it while
+walking away with the nearest enemy 1-3 tiles behind; when two or more of us attacked in a round we
+hit the same enemy 49% of the time.
+
+vs current main, regular bots 204 paired (kills / deaths per game change), head-to-head of 34:
+- `FOCUS_FIRE` (target the enemy most of us are near, then lowest health fraction): no change.
+- `FINISH_KILL` (at recall health, keep hitting an enemy in attack range under 25% and below us):
+  deaths -1.16 (p=0.12), kills +0.67 (p=0.08); top ladder 48 of 50 games identical, +4/game.
+- `RETREAT_FIRE` (while walking away to recall, cast at the nearest enemy; melee also attack it):
+  deaths -1.25 (p=0.056).
+- `RETREAT_FIRE` + `FINISH_KILL`: deaths -1.82 (p=0.015), kills +0.73 (p=0.08), gems +28/game
+  (p=0.08), head-to-head 17/34. Top-ladder test pending.
+
 ## Capture Stayer, Fight Value Check, Camp Crowding (tested, off)
 
 vs v8: head-to-head of 34, then regular bots (204 paired, margin per game).
