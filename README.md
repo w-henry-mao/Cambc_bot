@@ -408,6 +408,11 @@ monster damage per game vs main's 4962 and 74k):
 - plan 1, scale 1200: 12/34, -32/game (p=0.04); 5617, 81k.
 - plan 2, 1.0 over 500 rounds: 13/34, -25/game (p=0.14); 5184, 77k.
 More gold and damage, fewer gems banked, monotone in the weight.
+Top ladder (50 paired site rematches of v17's games, same opponent versions and maps), plan 2:
+-20/game (t=-1.14), 9 better / 20 worse / 21 identical, wins 1 vs 2. Not adopted.
+
+Pursuit plan 1 (`PURSUE_PLAN` 1: hit a recalling or tributing enemy in reach first; team doc idea),
+same 50 rematches: 47 identical, +3/game (t=0.57), wins 2 vs 2. It almost never comes up. Off.
 
 ## Route Planning (tested, off)
 
