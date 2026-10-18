@@ -217,9 +217,9 @@ and 64, so `sweep_team_header()` clears expired entries at the start of every ch
 normal matches and in 24 test-caller matches with unlimited fuel; it also fixes a wrap-around
 bug in the old 8-bit round stamp that let a fight call come back exactly 256 rounds later.
 
-## Shop Trips (default: 150 gold)
+## Shop Trips (off; best vs v8 at 150 gold)
 
-`SHOP_RECALL_GOLD` (`states/recall.cpp`): recall to shop once a champion holds 150 gold, unless an
+`SHOP_RECALL_GOLD` (`states/recall.cpp`, 0 = off): recall to shop once a champion holds that much gold, unless an
 enemy champion is in view within 8 tiles, something hit us since last turn, or we stand at our
 live farm camp (shopping happens on any turn spent on spawn). From the team Discord: The Mania
 recall as soon as they can buy an emblem.
@@ -246,7 +246,8 @@ safe recall fix) vs v8: head-to-head 23/34 (p=0.06), regular bots +75/game (p<0.
 49 paired games +106/game (t=3.41), 35 better / 9 worse. Merged with shop trips (this branch) vs
 main: head-to-head 20/34, regular bots +26/game (p=0.14); main vs v8+trips on the top ladder +34/game
 (t=1.15, n.s.). Both recover idle farming time, so their gains overlap. Merged vs main on the top
-ladder: pending.
+ladder (50 paired games): -31/game (t=-1.26, n.s.), 19 better / 28 worse. So shop trips are off by
+default again (`SHOP_RECALL_GOLD` 0): this branch plays exactly like main.
 
 ## Capture Stayer, Fight Value Check, Camp Crowding (tested, off)
 
