@@ -334,6 +334,22 @@ fight is a run of our attack-state turns with gaps of 5 rounds or less.
 - Our health at the start barely matters (90%+ start: 1.08 deaths per fight): we lose fights at
   full health, so the problem is their damage (builds and focus), not our recall timing.
 
+Farming pace, same 30 games (site summaries; ratio is theirs over ours, geometric mean per game;
+low-fight = 10 games with at most 2 deaths in total; games end at 1000 gems, ~460-600 rounds):
+
+| | all games | low-fight |
+|---|---|---|
+| monster damage | 1.65x (t=6.4) | 1.56x (t=9.9) |
+| rounds dealing monster damage (per champion, summed) | 1.31x (t=4.8) | 1.12x (t=1.9) |
+| damage per such round | 1.27x (t=5.1) | 1.40x (t=5.0) |
+| camp groups captured | 1.32x (t=2.8) | 1.27x (t=1.4) |
+| gold spent by round 300 | 1.59x (t=5.0) | 1.65x (t=10.2) |
+
+Gems per capture are about the same on most maps (stampede is the exception: our 29 captures were
+groups worth 0 gems, theirs 9 groups of 120). When nobody dies, our time spent on camps is close to
+theirs; the gap is damage per round, along with their earlier gold. Routing can win back at most
+the ~12% uptime difference there.
+
 ## Capture Stayer, Fight Value Check, Camp Crowding (tested, off)
 
 vs v8: head-to-head of 34, then regular bots (204 paired, margin per game).
