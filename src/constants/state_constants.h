@@ -28,6 +28,14 @@ constexpr int kCaptureStayer = CAPTURE_STAYER;
 constexpr int kFightEv = FIGHT_EV;
 constexpr float kFightEvWinFight = 0.75f, kFightEvWinUnsure = 0.55f, kFightEvWinAvoid = 0.30f;
 constexpr int kCampCrowdRounds = CAMP_CROWD_ROUNDS;   // champions per camp by strength (0 = off)
+// Ward placement (skills/wards.cpp): goal per WARD_PLAN; move our ward once we are farther than
+// kWardReplaceDist from it; plan 3 looks kWardAheadDist tiles toward the enemy spawn.
+constexpr int kWardPlan = WARD_PLAN;
+// Early retreat: enemies seen within kEarlyRetreatRadius of our farm camp outnumber us there.
+constexpr bool kEarlyRetreat = EARLY_RETREAT;
+constexpr int kEarlyRetreatRadius = 8;
+constexpr int kWardReplaceDist = 10;
+constexpr int kWardAheadDist = 8;
 constexpr bool kAltarMemory = ALTAR_MEMORY;
 constexpr std::uint32_t kAltarLockMemoryRounds = 200;
 constexpr int kAltarClearDistance = 5;

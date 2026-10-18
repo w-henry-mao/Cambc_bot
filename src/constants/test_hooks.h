@@ -190,6 +190,14 @@
 #ifndef SEQ_CAMP_DAMAGE
 #define SEQ_CAMP_DAMAGE false
 #endif
+// Wards (skills/wards.cpp): 0 off, 1 map centre, 2 our farm camp, 3 ahead toward the enemy spawn.
+#ifndef WARD_PLAN
+#define WARD_PLAN 0
+#endif
+// Early retreat (states/farm.cpp): enemies at our farm camp outnumber us there -> back off home.
+#ifndef EARLY_RETREAT
+#define EARLY_RETREAT false
+#endif
 // Idle recall threshold (constants/state_constants.h kIdleRecallHpFraction).
 #ifndef IDLE_RECALL_HP
 #define IDLE_RECALL_HP 1.0f

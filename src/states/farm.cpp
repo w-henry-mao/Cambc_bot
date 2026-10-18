@@ -468,6 +468,24 @@ StateResult FarmState::execute(TurnContext& ctx, BotMemory& memory) {
     auto& me = cambc::self();
     auto& match = *ctx.match_data;
     if (!farm_target(match)) return StateResult::Failed;
+    if constexpr (constants::kEarlyRetreat) {
+        // Enemies at our camp outnumber us there (counting us as on our way): back off home.
+        const auto& g = match.camp_groups[static_cast<std::size_t>(*match.farm_target)];
+        const auto r = static_cast<std::uint32_t>(constants::kEarlyRetreatRadius);
+        int enemies = 0;
+        for (const auto& e : roster_enemies())
+            if (in_view(e) && e.position().chebyshev_distance(g.centre) <= r) ++enemies;
+        if (enemies > 0) {
+            cambc::vec2 mates[8];
+            const int n = collect_mates(mates);
+            int ours = 1;
+            for (int k = 0; k < n; ++k) ours += mates[k].chebyshev_distance(g.centre) <= r;
+            if (enemies > ours && me.can_move()) {
+                move_towards_closest(cambc::map::spawn_region(cambc::team::ally));
+                return StateResult::Continue;
+            }
+        }
+    }
     if constexpr (constants::kBunchMode == 1) {
         // Rally: a teammate saw enemies nearby; join it before farming on.
         const auto rally = read_rally(constants::kRallyRounds);

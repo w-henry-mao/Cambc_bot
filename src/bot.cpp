@@ -23,6 +23,7 @@
 #include "states/recall.h"
 #include "states/attack.h"
 #include "states/tribute.h"
+#include "skills/wards.h"
 #include "states/farm.h"
 #include "brain/state.h"
 #include "constants/brain_constants.h"
@@ -109,6 +110,11 @@ void Bot::play_turn() {
             cambc::bitboard visited;
             ours.compute(blockers, cambc::map::spawn_region(cambc::team::ally), visited);
             theirs.compute(blockers, cambc::map::spawn_region(cambc::team::enemy), visited);
+            namespace k = cambc::constants;
+            std::cout << "WARDS active " << k::active_wards << " charges " << cambc::detail::cached_game_settings.ward_charges << " cooldown " << k::ward_cooldown
+                      << " lifetime " << k::ward_lifetime << " vision " << k::ward_vision_radius << " place " << k::ward_placement_radius
+                      << " control_vision " << cambc::detail::cached_game_settings.control_ward_vision_radius << " control_place " << cambc::detail::cached_game_settings.control_ward_placement_radius
+                      << " reveal " << k::tile_reveal_rounds << '\n';
             std::cout << "MAP " << cambc::map::width() << ' ' << cambc::map::height() << " altars " << cambc::map::altars().count()
                       << " bushes " << cambc::map::bushes().count() << " walls " << cambc::map::walls().count() << '\n';
             for (const auto& g : match_data_.camp_groups)
@@ -123,6 +129,7 @@ void Bot::play_turn() {
     }
     if constexpr (constants::kAltarMemory) note_altar_locks(match_data_);
     selector.select_and_execute(ctx, memory_);
+    if constexpr (constants::kWardPlan > 0) ward_step(match_data_);
     if constexpr (STATE_TRACE) {
         const auto& me = cambc::self();
         std::cout << "ST " << cambc::round_number() << ' ' << cambc::to_string(me.champion_name()) << ' '
