@@ -110,6 +110,22 @@ Targets pick_targets(int radius, const MatchData* match) {
     }
     return t;
 }
+
+// Reach and targets, worked out once per turn: the attack score, the attack move and the shop-trip
+// check (states/recall.cpp) all ask during the same turn, before anything has moved.
+struct TurnPick { int reach = 0; Targets targets; };
+const TurnPick& turn_pick(const MatchData* match) {
+    static TurnPick pick;
+    static std::uint32_t round = 0;
+    static bool valid = false;
+    if (!valid || round != cambc::round_number()) {
+        pick.reach = reach();
+        pick.targets = pick_targets(pick.reach, match);
+        round = cambc::round_number();
+        valid = true;
+    }
+    return pick;
+}
 }
 // Fight back whenever an enemy champion is within reach: the weakest one first. While a teammate's
 // fight call is live (combat/sdk_team_fight.h, brain/team_fight_call.cpp), the called enemy comes
@@ -150,7 +166,7 @@ int AttackState::score(const TurnContext& ctx) {
     // Carrying many gems: stay out of fights and bank them (tribute) instead.
     if constexpr (constants::kCarrierAvoidGems > 0)
         if (cambc::self().gem_count() >= static_cast<std::uint32_t>(constants::kCarrierAvoidGems)) return 0;
-    const auto t = pick_targets(reach(), ctx.match_data);
+    const auto& t = turn_pick(ctx.match_data).targets;
     if constexpr (constants::kFightEv > 0) {
         const auto round = cambc::round_number();
         const bool in_progress = last_attack_round + 1 >= round && last_attack_round != 0;
@@ -169,8 +185,9 @@ void walk_to(vec2 spot) { move_towards_closest(tiles_around(spot, cambc::self().
 StateResult AttackState::execute(TurnContext& ctx, BotMemory& memory) {
     auto& me = cambc::self();
     if constexpr (constants::kFightEv > 0) last_attack_round = cambc::round_number();
-    const int r = reach();
-    const auto targets = pick_targets(r, ctx.match_data);
+    const auto& pick = turn_pick(ctx.match_data);
+    const int r = pick.reach;
+    const auto& targets = pick.targets;
     const auto* target = targets.attack;
     if (const auto order = team_fight_called()) {
         const auto& called = *order->target;

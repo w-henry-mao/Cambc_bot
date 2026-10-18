@@ -241,13 +241,19 @@ std::optional<int> farm_target(MatchData& match, bool force) {
     if (!force && round == cambc::round_number()) return match.farm_target;
     round = cambc::round_number();
     auto& me = cambc::self();
-    cambc::distance_field field;
-    cambc::bitboard visited;
-    cambc::bitboard camp_tiles;
-    camp_tiles.clear();
-    for (const auto& g : match.camp_groups) camp_tiles |= g.spawn_tiles;
-    // Camps stand on their own tiles: make every group's tiles walkable for the estimate.
-    field.compute(match.static_blockers & ~camp_tiles, tiles_around(me.position(), 0), visited, constants::kCampSearchRange);
+    // Walking distances from us, kept for the round: a forced re-pick later in the same turn
+    // (leaving a reward to a teammate, before we move) re-scores the camps without a new search.
+    static cambc::distance_field field;
+    static std::uint32_t field_round = 0;
+    if (field_round != round) {
+        field_round = round;
+        cambc::bitboard visited;
+        cambc::bitboard camp_tiles;
+        camp_tiles.clear();
+        for (const auto& g : match.camp_groups) camp_tiles |= g.spawn_tiles;
+        // Camps stand on their own tiles: make every group's tiles walkable for the estimate.
+        field.compute(match.static_blockers & ~camp_tiles, tiles_around(me.position(), 0), visited, constants::kCampSearchRange);
+    }
     const float dps = my_dps();
     const int team_size = std::max(1, alive_allies());
     // A property of the map: no gem group even one champion at full health could take within the
