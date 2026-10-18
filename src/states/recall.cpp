@@ -68,6 +68,19 @@ int RecallState::score(const TurnContext& ctx) {
                 if (in_view(e) && e.position().chebyshev_distance(me.position()) <= static_cast<std::uint32_t>(constants::kRecallNearEnemyDist))
                     return constants::kRecallScore;
     }
+    // Carrying many gems with an enemy close (constants::kCarrierSafeGems): go home and bank them
+    // on a later trip instead of walking them past the enemy, unless an altar is right here.
+    if constexpr (constants::kCarrierSafeGems > 0) {
+        if (me.gem_count() >= static_cast<std::uint32_t>(constants::kCarrierSafeGems)) {
+            bool at_altar = false;
+            for (const auto altar : cambc::map::altars().positions())
+                if (altar.chebyshev_distance(me.position()) <= static_cast<std::uint32_t>(cambc::constants::submit_gems_range)) at_altar = true;
+            if (!at_altar)
+                for (const auto& e : roster_enemies())
+                    if (in_view(e) && e.position().chebyshev_distance(me.position()) <= static_cast<std::uint32_t>(constants::kCarrierSafeDist))
+                        return constants::kRecallScore;
+        }
+    }
     // Shopping trip: enough gold for the next purchases, and nothing is fighting us.
     if constexpr (constants::kShopRecallGold > 0) {
         // kShopRecallGold 1: as soon as the next emblem in our buy order is affordable.

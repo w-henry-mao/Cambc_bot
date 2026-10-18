@@ -436,6 +436,12 @@ their spawn, mostly at the gold groups next to it, two of them carrying a herd c
   champion and per round (from current damage and health), so it switches off on contest once
   champions are strong and contest still changed (800:400 to 0:1000, 600:0 to 200:400). Eight
   mid-ladder groups, 40 games: -23/game (t=-0.35), wins 22 vs 23; Invincible +788, 1 win vs 0. Off.
+  Plan 4 (as 3, with gem-starved judged once at the start of the match): contest and stampede
+  play exactly like main; local head-to-head 17/34, regular bots +9/game (p=0.37). Site test
+  pending (Invincible, mid-ladder and top ladder).
+- `CARRIER_SAFE_GEMS` / `_DIST` (with that many gems and an enemy that close, recall home unless at
+  an altar): 40 / 6 head-to-head 12/34, regular bots -67/game (p<0.001), wins 188 vs 198;
+  80 / 8: 16/34, -8/game (p=0.32). Off.
 - `FIGHT_GAIN_PLAN` (don't start a fight with an enemy carrying no gems near its spawn; fight back
   if hit): 1 = within 12 of its spawn: 11/34 (p=0.06), -10/game (p=0.54); 2 = on its half: 11/34,
   -38/game (p=0.07). Our deaths per game rise (6.0 to 6.6 / 8.4), kills fall. Off.

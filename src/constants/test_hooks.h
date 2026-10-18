@@ -242,6 +242,12 @@
 #ifndef COMMIT_TARGET
 #define COMMIT_TARGET 0.0f
 #endif
+#ifndef CARRIER_SAFE_GEMS
+#define CARRIER_SAFE_GEMS 0
+#endif
+#ifndef CARRIER_SAFE_DIST
+#define CARRIER_SAFE_DIST 6
+#endif
 #ifndef FIGHT_GAIN_PLAN
 #define FIGHT_GAIN_PLAN 0
 #endif

@@ -65,11 +65,15 @@ constexpr float kGoldWeight = GOLD_WEIGHT;         // 0.25 unless a test build o
 constexpr int kGoldDecayPlan = GOLD_DECAY_PLAN;
 // Skip gold-only groups on the enemy's side (A/B test, states/farm.cpp camp_value): 0 off,
 // 1 closer to the enemy spawn than ours, 2 within kEnemySideRadius of the enemy spawn, 3 as 2 except
-// on gem-starved maps.
+// on gem-starved maps, 4 as 3 with gem-starved judged once at the start.
 constexpr int kEnemySidePlan = ENEMY_SIDE_PLAN;
 // No-gain fights (A/B test, states/attack.cpp score): don't start a fight with an enemy carrying no
 // gems that is 1: within kNoGainSpawnRadius of its spawn, 2: closer to its spawn than ours.
 constexpr int kFightGainPlan = FIGHT_GAIN_PLAN;
+// Defensive carrier (A/B test, states/recall.cpp score): with at least kCarrierSafeGems gems and an
+// enemy within kCarrierSafeDist, recall home (0 = off).
+constexpr int kCarrierSafeGems = CARRIER_SAFE_GEMS;
+constexpr int kCarrierSafeDist = CARRIER_SAFE_DIST;
 constexpr int kNoGainSpawnRadius = 12;
 constexpr int kEnemySideRadius = 16;
 constexpr float kGoldDecayScale = GOLD_DECAY_SCALE;     // plan 1: weight = gems the enemy still needs / this
