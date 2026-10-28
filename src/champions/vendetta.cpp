@@ -1,3 +1,9 @@
 #include "champion_profile.h"
+#include "../skills/attack_reset.h"
+#include "../skills/dash.h"
 
-ChampionProfile vendetta_profile;
+ChampionProfile vendetta_profile = {
+    .is_ranged = false,
+    .skills = {&attack_reset_instance, &dash_instance},
+    .linked_pair = false
+};
