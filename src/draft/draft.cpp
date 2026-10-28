@@ -160,54 +160,54 @@ namespace {
 
         cambc::draft_memory_buffer() = std::span<const std::byte>{buffer, 3};
 
-        if constexpr (debug::kLogging) {
-            std::cout << "Draft memory written: [" << static_cast<int>(buffer[0]) << ", "
+        if constexpr (debug::kEnableLogging && debug::kLogDraft) {
+            std::cout << "[DRAFT] Memory written: [" << static_cast<int>(buffer[0]) << ", "
                       << static_cast<int>(buffer[1]) << ", " << static_cast<int>(buffer[2]) << "]" << std::endl;
-            std::cout << "  Byte 0: altar_mode=" << static_cast<int>(classification.altar_mode)
+            std::cout << "[DRAFT]   Byte 0: altar_mode=" << static_cast<int>(classification.altar_mode)
                       << ", resource_mode=" << static_cast<int>(classification.resource_mode)
                       << ", combative=" << classification.combative << std::endl;
             if (classification.altar_position) {
-                std::cout << "  Bytes 1-2: altar position ("
+                std::cout << "[DRAFT]   Bytes 1-2: altar position ("
                           << classification.altar_position->x << ", " << classification.altar_position->y
                           << ") stored as (" << static_cast<int>(buffer[1]) << ", " << static_cast<int>(buffer[2]) << ")" << std::endl;
             } else {
-                std::cout << "  Bytes 1-2: no altar position stored" << std::endl;
+                std::cout << "[DRAFT]   Bytes 1-2: no altar position stored" << std::endl;
             }
         }
     }
 
     void log_classification(const Classification& classification) {
-        if constexpr (!debug::kLogging) return;
+        if constexpr (!debug::kEnableLogging) return;
 
         // Log altar mode
         switch (classification.altar_mode) {
             case AltarMode::Single:
-                debug::log("Altar mode: Single");
+                debug::log_draft("Altar mode: Single");
                 if (classification.altar_position) {
                     std::cout << "  Position: (" << classification.altar_position->x << ", " << classification.altar_position->y << ")" << std::endl;
                 }
                 break;
             case AltarMode::Zone:
-                debug::log("Altar mode: Zone");
+                debug::log_draft("Altar mode: Zone");
                 if (classification.altar_position) {
                     std::cout << "  Center: (" << classification.altar_position->x << ", " << classification.altar_position->y << ") - " << classification.center_label << std::endl;
                 }
                 break;
             case AltarMode::Normal:
-                debug::log("Altar mode: Normal");
+                debug::log_draft("Altar mode: Normal");
                 break;
         }
 
         // Log resource mode
         switch (classification.resource_mode) {
             case ResourceMode::GemsOnly:
-                debug::log("Resource mode: Gems only");
+                debug::log_draft("Resource mode: Gems only");
                 break;
             case ResourceMode::CampsOnly:
-                debug::log("Resource mode: Camps only");
+                debug::log_draft("Resource mode: Camps only");
                 break;
             case ResourceMode::Normal:
-                debug::log("Resource mode: Normal");
+                debug::log_draft("Resource mode: Normal");
                 break;
         }
 
@@ -263,7 +263,7 @@ namespace {
             cambc::draft::pick(pick);
         } catch (const cambc::error& e) {
             // Handle error gracefully (e.g., draft_already_picked)
-            if constexpr (debug::kLogging) {
+            if constexpr (debug::kEnableLogging) {
                 std::cout << "Draft pick error: " << e.what() << std::endl;
             }
         }

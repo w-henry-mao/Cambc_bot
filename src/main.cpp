@@ -8,12 +8,12 @@ int main() {
     Bot bot;
     while (true) {
         try {
-            if constexpr (debug::kLogging) {
+            if constexpr (debug::kEnableLogging) {
                 std::cout << "TURN START fuel=" << cambc::fuel_remaining() << " phase=" << (cambc::is_draft() ? "draft" : "play") << '\n';
             }
             if (cambc::is_draft()) play_draft();
             else bot.play_turn();
-            if constexpr (debug::kLogging) {
+            if constexpr (debug::kEnableLogging) {
                 std::cout << "TURN END fuel=" << cambc::fuel_remaining() << '\n';
             }
         } catch (const std::exception& error) {
