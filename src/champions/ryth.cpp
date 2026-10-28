@@ -1,3 +1,3 @@
 #include "champion_profile.h"
-#include "../skills/skill_instances.h"
-ChampionProfile ryth_profile{.is_ranged = false, .skills = {}, .linked_pair = false};
+
+ChampionProfile ryth_profile;

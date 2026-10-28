@@ -64,7 +64,7 @@
 #endif
 // Per-turn state log (bot.cpp): round, champion, chosen state, position, gems, health.
 #ifndef STATE_TRACE
-#define STATE_TRACE false
+#define STATE_TRACE true
 #endif
 // Safe-recall tunables for test sweeps.
 #ifndef RECALL_ENEMY_BUFFER
@@ -85,9 +85,9 @@
 #ifndef SCORE_TRACE
 #define SCORE_TRACE false
 #endif
-// Opening: each champion starts at its own closest camp (false: the old opening, for A/B tests).
+// Opening override: each champion starts at its own closest camp until it is cleared.
 #ifndef OPENING_CLOSEST_CAMP
-#define OPENING_CLOSEST_CAMP true
+#define OPENING_CLOSEST_CAMP false
 #endif
 // One champion collects a camp's reward while the others move on (false: everyone at the camp
 // stands on it and the reward is split, the old behaviour, for A/B tests).
@@ -113,9 +113,9 @@
 #ifndef SHOP_RECALL
 #define SHOP_RECALL true
 #endif
-// Each champion picks its own camp (false: the shared team target, for A/B tests).
+// Farm target selection is individual: no shared team target.
 #ifndef PER_CHAMPION_CAMPS
-#define PER_CHAMPION_CAMPS false
+#define PER_CHAMPION_CAMPS true
 #endif
 // Per-champion camp tunables for test sweeps.
 #ifndef CAMP_TEAMMATE_BONUS

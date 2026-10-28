@@ -2,6 +2,7 @@
 #include <iostream>
 #include "bot.h"
 #include "draft/draft.h"
+
 int main() {
     Bot bot;
     while (true) {

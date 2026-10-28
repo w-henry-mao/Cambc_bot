@@ -594,6 +594,13 @@ other maps 61/84 vs 59/84; head-to-head 20/34 with gems 877 vs 703. No faults.
 
 ## Farming: Opening and Per-Champion Camps
 
+Current dev settings: `PER_CHAMPION_CAMPS` is enabled and scores each camp with only the acting
+champion's DPS; nearby teammates and `CAMP_TEAMMATE_BONUS` are ignored. Estimated incoming
+camp damage no longer rejects candidates. `OPENING_CLOSEST_CAMP` is disabled. This requested
+configuration has not been benchmarked yet. `SINGLE_COLLECTOR` remains enabled: once the selected
+collector is on a cleared group's spawn tile, the others leave so the reward is not split among
+everyone standing there.
+
 - Opening (`kOpeningClosestCamp`): at match start each champion farms the camp group with the
   shortest walk from where it stands until that group is cleared and starts respawning (or
   `kOpeningMaxRounds` pass), then farms normally. 136 matches: head-to-head vs the old opening
@@ -609,7 +616,8 @@ other maps 61/84 vs 59/84; head-to-head 20/34 with gems 877 vs 703. No faults.
   and about the same later. Bonus 20 instead of 6 did not help. In the full regression (all
   features on, 272 + 340 matches) it was the one feature that cost gems: switching it off
   raised banked gems by ~120-200 a game against starters and the rush opponent (e.g. 9/17 ->
-  14/17 wins vs opp-rush), so it is now off by default.
+  14/17 wins vs opp-rush). The current dev setting above intentionally re-enables individual
+  scoring for the requested experiment.
 
 ## Waiting on Camp Fights
 
