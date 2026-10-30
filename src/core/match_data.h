@@ -14,13 +14,21 @@ struct CachedCampGroup {
     bool beside_ready = false;                     // beside tiles have been cached
     std::vector<cambc::vec2> spawn_positions;
     std::vector<cambc::vec2> beside_positions;
+    cambc::bitboard harvest_near_tiles;
+    bool harvest_near_ready = false;
     cambc::vec2 centre{0, 0};                      // a spawn tile in the middle of the group
     std::uint32_t gold_value = 0;
     std::uint32_t gem_value = 0;
     float design_health = 0;                       // all its camps at full health
     std::uint32_t respawn_ready_round = 0;         // last seen respawn timer as an absolute round
     std::uint32_t blocked_round = std::numeric_limits<std::uint32_t>::max();
+    bool reward_waiting = false;
+    std::uint32_t reward_seen_round = 0;
+    std::uint32_t yield_until_round = 0;
+    std::int32_t max_respawn = 0;
+    bool max_respawn_cached = false;
 };
+
 inline std::uint32_t respawn_remaining(const CachedCampGroup& group, std::uint32_t now) {
     return group.respawn_ready_round > now ? group.respawn_ready_round - now : 0;
 }

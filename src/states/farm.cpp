@@ -16,6 +16,22 @@
 namespace {
 constexpr int kUnreached = 65535;
 constexpr int kDashCooldown = 8;
+constexpr std::uint32_t kRewardBeliefRounds = 20;
+constexpr std::uint32_t kYieldCaptureRounds = 5;
+constexpr int kHarvestNearRadius = 5;
+
+int champion_rank(cambc::champion_type type) {
+    switch (type) {
+        case cambc::champion_type::prism: return 1;
+        case cambc::champion_type::vesper_vale: return 2;
+        case cambc::champion_type::marcella: return 3;
+        case cambc::champion_type::vendetta: return 4;
+        case cambc::champion_type::heart_of_ruin: return 5;
+        default: return 99;
+    }
+}
+
+struct VisibleAlly { int rank; cambc::vec2 position; };
 
 struct CampThreat {
     cambc::vec2 position;
@@ -39,10 +55,12 @@ void observe_respawns(MatchData& match, std::uint32_t now) {
             // Living camps are already known; skip group.state().
             group.respawn_ready_round = 0;
             group.blocked_round = std::numeric_limits<std::uint32_t>::max();
+            group.reward_waiting = false;
+            group.yield_until_round = 0;
         } else {
             // The last observed timer gives an exact next-check round. Avoid querying a
             // sleeping group every turn; live_camp_tiles above still detects its respawn.
-            if (group.respawn_ready_round > now) {
+            if (group.respawn_ready_round > now && !(group.yield_until_round && now >= group.yield_until_round)) {
                 continue;
             }
             if (group.blocked_round != std::numeric_limits<std::uint32_t>::max() &&
@@ -55,7 +73,13 @@ void observe_respawns(MatchData& match, std::uint32_t now) {
             if (std::holds_alternative<cambc::map::camp_group_alive>(state)) {
                 group.respawn_ready_round = 0;
                 group.blocked_round = std::numeric_limits<std::uint32_t>::max();
+                if (group.yield_until_round && now >= group.yield_until_round) {
+                    group.yield_until_round = 0;
+                    group.reward_waiting = true;
+                    group.reward_seen_round = now;
+                }
             } else if (const auto* respawn = std::get_if<cambc::map::camp_group_respawning>(&state)) {
+                group.reward_waiting = false;
                 if (respawn->timer > 0) {
                     group.respawn_ready_round = now + static_cast<std::uint32_t>(respawn->timer);
                     group.blocked_round = std::numeric_limits<std::uint32_t>::max();
@@ -64,7 +88,10 @@ void observe_respawns(MatchData& match, std::uint32_t now) {
                     group.blocked_round = now;
                 }
             } else {
-                continue; // Reward available: preserve its existing scoring and behavior.
+                group.reward_waiting = true;
+                group.reward_seen_round = now;
+                group.respawn_ready_round = 0;
+                group.blocked_round = std::numeric_limits<std::uint32_t>::max();
             }
         }
     }
@@ -165,17 +192,17 @@ std::optional<int> select_best_camp(const MatchData& match, const cambc::distanc
             continue;
         }
 
+        if (group.reward_waiting && now - group.reward_seen_round >= kRewardBeliefRounds) continue;
         const float adjusted_walk = static_cast<float>(walk) * walk_factor;
-        const int remaining = static_cast<int>(respawn_remaining(group, now));
-        const float wait = std::max(0.0f, static_cast<float>(remaining) - adjusted_walk);
-        const auto value = camp_value(group, adjusted_walk + wait, dps, capture_time);
-        if (!value) {
-            continue;
-        }
-
-        if (!best_group || *value > best_value) {
+        const float raw_walk = static_cast<float>(walk);
+        const float reward = static_cast<float>(group.gem_value) + farm_constants::kGoldWeight * static_cast<float>(group.gold_value);
+        const float value = reward * discount(group.reward_waiting
+            ? raw_walk + static_cast<float>(capture_time)
+            : raw_walk + static_cast<float>(static_cast<int>(group.design_health / dps) + 1 + capture_time) +
+                std::max(0.0f, static_cast<float>(respawn_remaining(group, now)) - 0.8f * raw_walk));
+        if (!best_group || value > best_value) {
             best_group = i;
-            best_value = *value;
+            best_value = value;
         }
     }
     return best_group;
@@ -237,6 +264,44 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
     const auto round = cambc::round_number();
     observe_respawns(match, round);
 
+    bool has_reward_belief = false;
+    for (auto& group : match.camp_groups) {
+        if (!group.max_respawn_cached && group.view) {
+            group.max_respawn = group.view->max_respawn_timer();
+            group.max_respawn_cached = true;
+        }
+        if (group.reward_waiting && round - group.reward_seen_round >= kRewardBeliefRounds) {
+            group.reward_waiting = false;
+            group.respawn_ready_round = group.reward_seen_round + kRewardBeliefRounds + static_cast<std::uint32_t>(group.max_respawn);
+        }
+        has_reward_belief = has_reward_belief || group.reward_waiting;
+    }
+    std::vector<VisibleAlly> visible_allies;
+    if (has_reward_belief) {
+        const auto my_rank = champion_rank(me.champion_name());
+        for (const auto& ally : cambc::vision::champions(cambc::team::ally)) {
+            try {
+                if (ally.is_alive() && static_cast<cambc::handle_champion_t>(ally) != static_cast<cambc::handle_champion_t>(me))
+                    visible_allies.push_back({champion_rank(ally.champion_name()), ally.position()});
+            } catch (const cambc::error&) {}
+        }
+        for (auto& group : match.camp_groups) {
+            if (!group.reward_waiting) continue;
+            if (!group.harvest_near_ready) {
+                for (const auto tile : group.spawn_positions) group.harvest_near_tiles.draw_chebyshev(tile, kHarvestNearRadius);
+                group.harvest_near_ready = true;
+            }
+            const auto better = std::find_if(visible_allies.begin(), visible_allies.end(), [&](const auto& ally) {
+                return ally.rank < my_rank && group.harvest_near_tiles.is_set(ally.position);
+            });
+            if (better != visible_allies.end()) {
+                group.reward_waiting = false;
+                group.yield_until_round = round + kYieldCaptureRounds;
+                group.respawn_ready_round = round + kYieldCaptureRounds + static_cast<std::uint32_t>(group.max_respawn);
+            }
+        }
+    }
+
     // Move off only when a visible, timer-zero camp is blocked from spawning.
     const auto observed_position = me.position();
     for (const auto& group : match.camp_groups) {
@@ -262,6 +327,27 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
     }
 
     auto& group = match.camp_groups[static_cast<std::size_t>(*best)];
+
+    if (group.reward_waiting) {
+        const auto position = me.position();
+        if (group.spawn_tiles.is_set(position)) return;
+        cambc::bitboard occupied;
+        for (const auto& ally : visible_allies) occupied.set(ally.position);
+        std::optional<cambc::vec2> destination;
+        int nearest = kUnreached;
+        for (const auto tile : group.spawn_positions) {
+            if (occupied.is_set(tile)) continue;
+            const int distance = field.get(tile);
+            if (distance < nearest) { nearest = distance; destination = tile; }
+        }
+        if (destination) nav::move_towards(memory.movement, *destination, true, true);
+        else {
+            beside_tiles(match, group);
+            if (!group.beside_tiles.is_set(position) && !group.beside_positions.empty())
+                nav::move_towards(memory.movement, group.beside_positions.front(), true, false);
+        }
+        return;
+    }
 
     std::vector<const cambc::camp*> candidates;
     std::vector<CampThreat> camp_threats;
