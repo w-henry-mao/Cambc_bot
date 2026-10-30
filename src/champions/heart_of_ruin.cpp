@@ -1,9 +1,9 @@
 #include "champion_profile.h"
-#include "../skills/shield.h"
-#include "../skills/damage_stun_dash.h"
 
 ChampionProfile heart_of_ruin_profile = {
     .is_ranged = false,
-    .skills = {&shield_instance, &damage_stun_dash_instance},
-    .linked_pair = false
+    .ability1_damage_multiplier = 0.0f,
+    .ability2_damage_multiplier = 1.5f,
+    .ability1_is_attack_reset = false,
+    .ability2_is_attack_reset = false
 };

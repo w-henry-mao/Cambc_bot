@@ -1,9 +1,9 @@
 #include "champion_profile.h"
-#include "../skills/damage_stun.h"
-#include "../skills/aoe_damage.h"
 
 ChampionProfile prism_profile = {
     .is_ranged = true,
-    .skills = {&damage_stun_instance, &aoe_damage_instance},
-    .linked_pair = false
+    .ability1_damage_multiplier = 1.5f,
+    .ability2_damage_multiplier = 1.0f,
+    .ability1_is_attack_reset = false,
+    .ability2_is_attack_reset = false
 };

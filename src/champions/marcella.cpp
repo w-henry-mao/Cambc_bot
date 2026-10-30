@@ -1,9 +1,9 @@
 #include "champion_profile.h"
-#include "../skills/enhanced_attack_reset.h"
-#include "../skills/single_target_damage.h"
 
 ChampionProfile marcella_profile = {
     .is_ranged = false,
-    .skills = {&enhanced_attack_reset_instance, &single_target_damage_instance},
-    .linked_pair = false
+    .ability1_damage_multiplier = 0.0f,
+    .ability2_damage_multiplier = 2.0f,
+    .ability1_is_attack_reset = true,
+    .ability2_is_attack_reset = false
 };

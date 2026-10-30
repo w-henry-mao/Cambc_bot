@@ -3,19 +3,19 @@
 #include <cambc.h>
 #include <unordered_map>
 
-static ChampionProfile heart_of_ruin_profile;
-static ChampionProfile ryth_profile;
-static ChampionProfile stellar_profile;
-static ChampionProfile tavi_profile;
-static ChampionProfile willow_profile;
-static ChampionProfile cassi_profile;
-static ChampionProfile issac_profile;
-static ChampionProfile prism_profile;
-static ChampionProfile vesper_vale_profile;
-static ChampionProfile vendetta_profile;
-static ChampionProfile marcella_profile;
-static ChampionProfile ren_profile;
-static ChampionProfile varg_profile;
+extern ChampionProfile heart_of_ruin_profile;
+extern ChampionProfile ryth_profile;
+extern ChampionProfile stellar_profile;
+extern ChampionProfile tavi_profile;
+extern ChampionProfile willow_profile;
+extern ChampionProfile cassi_profile;
+extern ChampionProfile issac_profile;
+extern ChampionProfile prism_profile;
+extern ChampionProfile vesper_vale_profile;
+extern ChampionProfile vendetta_profile;
+extern ChampionProfile marcella_profile;
+extern ChampionProfile ren_profile;
+extern ChampionProfile varg_profile;
 
 static const std::unordered_map<cambc::champion_type, ChampionProfile*> champion_registry = {
     {cambc::champion_type::heart_of_ruin, &heart_of_ruin_profile}, {cambc::champion_type::ryth, &ryth_profile}, {cambc::champion_type::stellar, &stellar_profile},

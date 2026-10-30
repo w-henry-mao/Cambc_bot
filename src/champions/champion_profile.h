@@ -1,11 +1,11 @@
 #pragma once
 #include <cambc.h>
-#include <functional>
-#include <vector>
-class Skill;
 struct ChampionProfile {
     bool is_ranged;
-    std::vector<Skill*> skills;
-    bool linked_pair;
-    std::function<void()> special_hook = []{};
+    // Focus multipliers are added to the farming damage estimate; use zero for non-damaging skills.
+    float ability1_damage_multiplier;
+    float ability2_damage_multiplier;
+    // An attack reset contributes one extra basic attack to the damage estimate.
+    bool ability1_is_attack_reset;
+    bool ability2_is_attack_reset;
 };

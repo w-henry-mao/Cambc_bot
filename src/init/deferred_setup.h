@@ -2,5 +2,5 @@
 #include <cambc.h>
 #include "../core/match_data.h"
 
-void continue_deferred_setup(MatchData& match);
+void ensure_spawn_data(CachedCampGroup& group);
 const cambc::bitboard& beside_tiles(MatchData& match, CachedCampGroup& group);

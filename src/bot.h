@@ -1,5 +1,4 @@
 #pragma once
-#include <cambc.h>
 #include "core/match_data.h"
 #include "core/bot_memory.h"
 #include "champions/champion_profile.h"
@@ -15,5 +14,4 @@ private:
     const ChampionProfile* profile_;
 
     bool turn_guard();
-    void post_turn();
 };
