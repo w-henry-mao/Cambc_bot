@@ -1,6 +1,7 @@
 #include "bot.h"
 #include "init/initializer.h"
 #include "states/farm.h"
+#include "states/shop.h"
 #include "champions/registry.h"
 #include <cambc.h>
 
@@ -27,8 +28,9 @@ void Bot::play_turn() {
         return;
     }
 
+    auto& me = cambc::self();
+    const auto round = cambc::round_number();
     if (!memory_.movement.initialized) {
-        auto& me = cambc::self();
         const auto champion = me.champion_name();
         memory_.movement.is_heart_of_ruin = champion == cambc::champion_type::heart_of_ruin;
         memory_.movement.resets_cooldowns_on_kill = champion == cambc::champion_type::vendetta;
@@ -44,6 +46,16 @@ void Bot::play_turn() {
     } else if (memory_.movement.cooldown > 0) {
         --memory_.movement.cooldown;
     }
+
+    if (memory_.recall_channel_started) {
+        if (me.is_recalling()) return;
+        memory_.recall_channel_started = false;
+        if (cambc::map::spawn_region(cambc::team::ally).is_set(me.position())) {
+            memory_.spawn_arrival_round = round;
+        }
+    }
+    shop_at_spawn_or_death();
+    if (memory_.spawn_arrival_round == round) return;
 
     if (!turn_guard()) {
         return;
