@@ -4,6 +4,12 @@
 #include <limits>
 #include <optional>
 #include <vector>
+struct CachedCampThreat {
+    cambc::vec2 position;
+    std::int32_t attack_range;
+    bool alive = true;
+};
+
 // What we know about a camp group. Static parts are filled once by the map snapshot; the rest
 // is updated while the group is in sight.
 struct CachedCampGroup {
@@ -13,6 +19,7 @@ struct CachedCampGroup {
     cambc::bitboard beside_tiles;                  // open tiles next to its spawn tiles, none of them a spawn tile of any group
     bool beside_ready = false;                     // beside tiles have been cached
     std::vector<cambc::vec2> spawn_positions;
+    std::vector<CachedCampThreat> camp_threats;
     std::vector<cambc::vec2> beside_positions;
     cambc::bitboard harvest_near_tiles;
     bool harvest_near_ready = false;
@@ -40,4 +47,15 @@ struct MatchData {
     bool map_snapshot_ready = false;
     bool initialized = false;
     std::uint32_t respawn_observed_round = std::numeric_limits<std::uint32_t>::max();
+    std::vector<cambc::champion> visible_enemies;
+    std::uint32_t visible_enemies_round = std::numeric_limits<std::uint32_t>::max();
 };
+
+inline const std::vector<cambc::champion>& visible_enemies_for_round(MatchData& match) {
+    const auto round = cambc::round_number();
+    if (match.visible_enemies_round != round) {
+        match.visible_enemies = cambc::vision::champions(cambc::team::enemy);
+        match.visible_enemies_round = round;
+    }
+    return match.visible_enemies;
+}

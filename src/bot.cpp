@@ -1,6 +1,6 @@
 #include "bot.h"
 #include "init/initializer.h"
-#include "states/farm.h"
+#include "states/state_selector.h"
 #include "states/shop.h"
 #include "champions/registry.h"
 #include <cambc.h>
@@ -64,5 +64,5 @@ void Bot::play_turn() {
     if (!profile_) {
         return;
     }
-    farm_turn(*profile_, match_data_, memory_);
+    run_state_selector(*profile_, match_data_, memory_);
 }

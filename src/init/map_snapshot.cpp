@@ -14,6 +14,9 @@ void stage_map_snapshot(MatchData& match_data) {
         for (const auto& camp : group) {
             const auto stats = camp.base_stats();
             cached.design_health += stats.base_health;
+            if (stats.base_attack_range > 0) {
+                cached.camp_threats.push_back({camp.spawn_position(), stats.base_attack_range, true});
+            }
         }
 
         cached.view = std::move(group);
