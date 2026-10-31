@@ -341,7 +341,21 @@ bool retreat_to_spawn(BotMemory& memory, MatchData& match, bool include_enemy_th
     }
 
     cambc::bitboard safe_candidates;
-    for (const auto tile : danger_tiles.positions()) safe_candidates.draw_chebyshev(tile, 1.0f);
+    // Dilate the dense danger mask with whole-board shifts. This is the same
+    // radius-1 Chebyshev neighborhood as drawing around every set tile, but
+    // has fixed cost instead of one SDK draw call per danger tile.
+    cambc::bitboard horizontal_span = danger_tiles;
+    cambc::bitboard shifted;
+    danger_tiles.shift_right_into(-1, shifted);
+    horizontal_span |= shifted;
+    danger_tiles.shift_right_into(1, shifted);
+    horizontal_span |= shifted;
+
+    safe_candidates = horizontal_span;
+    horizontal_span.shift_up_into(-1, shifted);
+    safe_candidates |= shifted;
+    horizontal_span.shift_up_into(1, shifted);
+    safe_candidates |= shifted;
     safe_candidates &= ~danger_tiles;
     safe_candidates &= ~match.static_blockers;
 

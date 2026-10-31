@@ -23,6 +23,7 @@ constexpr std::array prism_plan{
     PlannedEmblem{cambc::item_family::power, cambc::item_stat::health},
     PlannedEmblem{cambc::item_family::monster, cambc::item_stat::health},
     PlannedEmblem{cambc::item_family::jungle, cambc::item_stat::health},
+    PlannedEmblem{cambc::item_family::tribute, cambc::item_stat::health},
 };
 
 constexpr std::array vendetta_plan{
@@ -32,8 +33,8 @@ constexpr std::array vendetta_plan{
     PlannedEmblem{cambc::item_family::collectors, cambc::item_stat::health},
     PlannedEmblem{cambc::item_family::skirmish, cambc::item_stat::health},
     PlannedEmblem{cambc::item_family::jungle, cambc::item_stat::strength},
-    PlannedEmblem{cambc::item_family::monster, cambc::item_stat::strength},
-    PlannedEmblem{cambc::item_family::home, cambc::item_stat::health},
+    PlannedEmblem{cambc::item_family::monster, cambc::item_stat::health},
+    PlannedEmblem{cambc::item_family::home, cambc::item_stat::strength},
     PlannedEmblem{cambc::item_family::hunter, cambc::item_stat::health},
     PlannedEmblem{cambc::item_family::treasure, cambc::item_stat::strength},
     PlannedEmblem{cambc::item_family::tribute, cambc::item_stat::health},
@@ -48,8 +49,8 @@ constexpr std::array marcella_plan{
     PlannedEmblem{cambc::item_family::collectors, cambc::item_stat::health},
     PlannedEmblem{cambc::item_family::skirmish, cambc::item_stat::health},
     PlannedEmblem{cambc::item_family::jungle, cambc::item_stat::focus},
-    PlannedEmblem{cambc::item_family::monster, cambc::item_stat::focus},
-    PlannedEmblem{cambc::item_family::home, cambc::item_stat::health},
+    PlannedEmblem{cambc::item_family::monster, cambc::item_stat::health},
+    PlannedEmblem{cambc::item_family::home, cambc::item_stat::focus},
     PlannedEmblem{cambc::item_family::hunter, cambc::item_stat::health},
     PlannedEmblem{cambc::item_family::treasure, cambc::item_stat::focus},
     PlannedEmblem{cambc::item_family::tribute, cambc::item_stat::health},
