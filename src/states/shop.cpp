@@ -34,6 +34,11 @@ constexpr std::array vendetta_plan{
     PlannedEmblem{cambc::item_family::jungle, cambc::item_stat::strength},
     PlannedEmblem{cambc::item_family::monster, cambc::item_stat::strength},
     PlannedEmblem{cambc::item_family::home, cambc::item_stat::health},
+    PlannedEmblem{cambc::item_family::hunter, cambc::item_stat::health},
+    PlannedEmblem{cambc::item_family::treasure, cambc::item_stat::strength},
+    PlannedEmblem{cambc::item_family::tribute, cambc::item_stat::health},
+    PlannedEmblem{cambc::item_family::prospector, cambc::item_stat::strength},
+    PlannedEmblem{cambc::item_family::capture, cambc::item_stat::strength},
 };
 
 constexpr std::array marcella_plan{
@@ -45,6 +50,11 @@ constexpr std::array marcella_plan{
     PlannedEmblem{cambc::item_family::jungle, cambc::item_stat::focus},
     PlannedEmblem{cambc::item_family::monster, cambc::item_stat::focus},
     PlannedEmblem{cambc::item_family::home, cambc::item_stat::health},
+    PlannedEmblem{cambc::item_family::hunter, cambc::item_stat::health},
+    PlannedEmblem{cambc::item_family::treasure, cambc::item_stat::focus},
+    PlannedEmblem{cambc::item_family::tribute, cambc::item_stat::health},
+    PlannedEmblem{cambc::item_family::prospector, cambc::item_stat::focus},
+    PlannedEmblem{cambc::item_family::capture, cambc::item_stat::focus},
 };
 
 template <typename Champion>
