@@ -110,29 +110,10 @@ void filter_legal_dash_landings(MovementMemory& movement, cambc::vec2 start,
 namespace {
 bool walk_towards(cambc::vec2 target) {
     auto& me = cambc::self();
-    if (!me.can_move()) {
-        return false;
-    }
+    if (!me.can_move()) return false;
     try {
-        const bool moved = me.move_towards(target);
-        return moved;
+        return me.move_towards(target);
     } catch (const cambc::error&) {
-        const auto position = me.position();
-        if (position.chebyshev_distance(target) <= 1) {
-            return false;
-        }
-        for (int dx = -1; dx <= 1; ++dx) {
-            for (int dy = -1; dy <= 1; ++dy) {
-                if (dx == 0 && dy == 0) continue;
-                const cambc::vec2 adjacent{target.x + dx, target.y + dy};
-                if (!cambc::map::is_in_bounds(adjacent)) continue;
-                try {
-                    if (me.move_towards(adjacent)) {
-                        return true;
-                    }
-                } catch (const cambc::error&) { }
-            }
-        }
         return false;
     }
 }
@@ -236,7 +217,6 @@ bool move_towards(MovementMemory& movement, cambc::vec2 target, bool allow_dash,
         const bool moved = walk_towards(target);
         return moved;
     }
-
 
     const auto current_position = me.position();
     if (const auto step = goal_field.next_move_from(current_position)) {

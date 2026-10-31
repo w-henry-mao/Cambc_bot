@@ -2,6 +2,7 @@
 #include "init/initializer.h"
 #include "states/state_selector.h"
 #include "states/shop.h"
+#include "states/tribute.h"
 #include "champions/registry.h"
 #include <cambc.h>
 
@@ -13,10 +14,9 @@ bool Bot::turn_guard() {
         return false;
     }
     if (me.is_teleporting()) return false;
-    if (me.is_recalling() || me.is_submitting_gems()) {
-        return false;
-    }
-    if (!me.can_move() && !me.can_attack() && !me.can_cast()) return false;
+    if (me.is_recalling()) return false;
+    const bool submitting_gems = me.is_submitting_gems();
+    if (!me.can_move() && !me.can_attack() && !me.can_cast() && !submitting_gems) return false;
     return true;
 }
 
@@ -32,6 +32,7 @@ void Bot::play_turn() {
     const auto round = cambc::round_number();
     if (!memory_.movement.initialized) {
         const auto champion = me.champion_name();
+        memory_.tribute_eligible = champion != cambc::champion_type::prism;
         memory_.movement.is_heart_of_ruin = champion == cambc::champion_type::heart_of_ruin;
         memory_.movement.resets_cooldowns_on_kill = champion == cambc::champion_type::vendetta;
         profile_ = get_champion_profile(champion);
@@ -47,6 +48,8 @@ void Bot::play_turn() {
         --memory_.movement.cooldown;
     }
 
+    update_final_tribute(memory_);
+
     if (memory_.recall_channel_started) {
         if (me.is_recalling()) return;
         memory_.recall_channel_started = false;
@@ -57,12 +60,8 @@ void Bot::play_turn() {
     shop_at_spawn_or_death();
     if (memory_.spawn_arrival_round == round) return;
 
-    if (!turn_guard()) {
-        return;
-    }
+    if (!turn_guard()) return;
+    if (!profile_) return;
 
-    if (!profile_) {
-        return;
-    }
     run_state_selector(*profile_, match_data_, memory_);
 }

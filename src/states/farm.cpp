@@ -39,6 +39,15 @@ struct CampThreat {
     bool damaging;
 };
 
+struct CampCandidate {
+    const cambc::camp* view;
+    cambc::camp_type kind;
+    cambc::vec2 position;
+    float health;
+    int priority_rank;
+    int distance;
+};
+
 void observe_respawns(MatchData& match, std::uint32_t now) {
     if (match.respawn_observed_round == now) return;
     cambc::bitboard visible_tiles;
@@ -227,35 +236,50 @@ std::optional<int> select_best_camp(const MatchData& match, const cambc::distanc
     return best_group;
 }
 
-// Comparator for camp candidates
-bool is_better_candidate(const cambc::camp& a, const cambc::camp& b, const cambc::vec2& my_pos) {
-    // Lower CAMP_PRIORITY_RANK
-    int rank_a = farm_constants::get_camp_priority_rank(a.kind());
-    int rank_b = farm_constants::get_camp_priority_rank(b.kind());
-    if (rank_a != rank_b) return rank_a < rank_b;
-
-    // Smaller Chebyshev distance from me
-    int dist_a = static_cast<int>(a.position().chebyshev_distance(my_pos));
-    int dist_b = static_cast<int>(b.position().chebyshev_distance(my_pos));
-    if (dist_a != dist_b) return dist_a < dist_b;
-
-    // Lower current health
-    if (a.health() != b.health()) return a.health() < b.health();
-
-    // Deterministic tie-break: lowest y then x
-    if (a.position().y != b.position().y) return a.position().y < b.position().y;
-    return a.position().x < b.position().x;
+bool is_better_candidate(const CampCandidate& a, const CampCandidate& b) {
+    if (a.priority_rank != b.priority_rank) return a.priority_rank < b.priority_rank;
+    if (a.distance != b.distance) return a.distance < b.distance;
+    if (a.health != b.health) return a.health < b.health;
+    if (a.position.y != b.position.y) return a.position.y < b.position.y;
+    return a.position.x < b.position.x;
 }
 
-const cambc::camp* best_attack_target(const std::vector<const cambc::camp*>& candidates,
-                                      const cambc::bitboard& attack_tiles,
-                                      const cambc::vec2& my_pos) {
-    const cambc::camp* best = nullptr;
-    for (const auto* camp : candidates) {
+bool is_better_attack_candidate(const CampCandidate& a, float health_a,
+                                const CampCandidate& b, float health_b,
+                                const cambc::vec2& my_pos) {
+    if (a.priority_rank != b.priority_rank) return a.priority_rank < b.priority_rank;
+    const int distance_a = static_cast<int>(a.position.chebyshev_distance(my_pos));
+    const int distance_b = static_cast<int>(b.position.chebyshev_distance(my_pos));
+    if (distance_a != distance_b) return distance_a < distance_b;
+    if (health_a != health_b) return health_a < health_b;
+    if (a.position.y != b.position.y) return a.position.y < b.position.y;
+    return a.position.x < b.position.x;
+}
+
+const CampCandidate* best_attack_target(const std::vector<CampCandidate>& candidates,
+                                        const cambc::bitboard& attack_tiles,
+                                        const cambc::vec2& my_pos,
+                                        const CampCandidate* preferred_target = nullptr) {
+    if (preferred_target && attack_tiles.is_set(preferred_target->position)) {
         try {
-            if (camp->is_visible() && camp->health() > 0 && attack_tiles.is_set(camp->position()) &&
-                (!best || is_better_candidate(*camp, *best, my_pos))) {
-                best = camp;
+            if (preferred_target->view->health() > 0) {
+                return preferred_target;
+            }
+        } catch (const cambc::error&) {
+            // Continue with the remaining live candidates.
+        }
+    }
+
+    const CampCandidate* best = nullptr;
+    float best_health = 0.0f;
+    for (const auto& camp : candidates) {
+        try {
+            if (!attack_tiles.is_set(camp.position)) continue;
+            const float health = camp.view->health();
+            if (health <= 0) continue;
+            if (!best || is_better_attack_candidate(camp, health, *best, best_health, my_pos)) {
+                best = &camp;
+                best_health = health;
             }
         } catch (const cambc::error&) {
             continue;
@@ -264,11 +288,27 @@ const cambc::camp* best_attack_target(const std::vector<const cambc::camp*>& can
     return best;
 }
 
+bool surrounded_by_live_camps(cambc::vec2 position, const cambc::bitboard& live_camp_tiles) {
+    // For melee movement priority, exclude a camp with no open neighboring tile.
+    for (int dx = -1; dx <= 1; ++dx) {
+        for (int dy = -1; dy <= 1; ++dy) {
+            if (dx == 0 && dy == 0) continue;
+            const cambc::vec2 neighbor{position.x + dx, position.y + dy};
+            if (!cambc::map::is_in_bounds(neighbor)) continue;
+            if (!live_camp_tiles.is_set(neighbor)) return false;
+        }
+    }
+    return true;
+}
+
 }
 
 bool retreat_to_spawn(BotMemory& memory, MatchData& match, bool include_enemy_threats) {
     auto& me = cambc::self();
-    if (cambc::map::spawn_region(cambc::team::ally).is_set(me.position())) return true;
+    if (cambc::map::spawn_region(cambc::team::ally).is_set(me.position())) {
+
+        return true;
+    }
 
     cambc::bitboard danger_tiles;
     const auto round = cambc::round_number();
@@ -327,14 +367,18 @@ bool retreat_to_spawn(BotMemory& memory, MatchData& match, bool include_enemy_th
     }
 
     auto position = me.position();
+
     if (!danger_tiles.is_set(position)) {
         try {
             me.recall();
             memory.recall_channel_started = true;
+            memory.tribute_altar.reset();
             memory.pursuit_target.reset();
             memory.abandoned_pursuit_target.reset();
             memory.pursuit_last_damage_round = 0;
+
         } catch (const cambc::error&) {
+
             // Stay out of camp range and retry on a later turn.
         }
         return true;
@@ -374,25 +418,33 @@ bool retreat_to_spawn(BotMemory& memory, MatchData& match, bool include_enemy_th
             destination = tile;
         }
     }
-    if (!destination) return true;
+    if (!destination) {
 
-    if (!nav::move_towards(memory.movement, *destination, true, false)) return true;
+        return true;
+    }
+
+    const bool moved = nav::move_towards(memory.movement, *destination, true, false);
+
+    if (!moved) return true;
     position = me.position();
     if (!danger_tiles.is_set(position)) {
         try {
             me.recall();
             memory.recall_channel_started = true;
+            memory.tribute_altar.reset();
             memory.pursuit_target.reset();
             memory.abandoned_pursuit_target.reset();
             memory.pursuit_last_damage_round = 0;
+
         } catch (const cambc::error&) {
+
             // Retry recall from safety on the next turn.
         }
     }
     return true;
 }
 
-bool recall_turn(MatchData& match, BotMemory& memory) {
+bool recall_turn(MatchData& match, BotMemory& memory, bool force_recall) {
     auto& me = cambc::self();
     const auto position = me.position();
     const bool at_spawn = cambc::map::spawn_region(cambc::team::ally).is_set(position);
@@ -411,13 +463,34 @@ bool recall_turn(MatchData& match, BotMemory& memory) {
     }
 
     const bool shop_recall = !active_fight && !at_spawn && me.gold_count() >= 300;
-    if (!low_health && !shop_recall) return false;
+
+    if (force_recall && at_spawn && me.is_submitting_gems()) {
+        try { me.cancel_submit_gems(); } catch (const cambc::error&) { }
+        return true;
+    }
+    if (force_recall && at_spawn) return false;
+    if (!force_recall && !low_health && !shop_recall) {
+
+        return false;
+    }
+
+    if (!at_spawn && me.is_submitting_gems()) {
+        try {
+            me.cancel_submit_gems();
+
+        } catch (const cambc::error&) {
+
+            return true;
+        }
+    }
     if (!at_spawn) {
         const auto round = cambc::round_number();
         observe_respawns(match, round);
         refresh_respawn_beliefs(match, round);
     }
-    return retreat_to_spawn(memory, match, low_health && active_fight);
+    const bool result = retreat_to_spawn(memory, match, low_health && active_fight);
+
+    return result;
 }
 
 void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memory) {
@@ -429,6 +502,7 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
     static cambc::distance_field field;
     static std::uint32_t field_round = 0;
     const auto round = cambc::round_number();
+
     observe_respawns(match, round);
     refresh_respawn_beliefs(match, round);
     const bool low_health = me.health() <= me.max_health() * 0.35f;
@@ -439,6 +513,7 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
         for (const auto& group : match.camp_groups) {
             if (group.blocked_round != round || !group.spawn_tiles.is_set(observed_position)) continue;
             nav::move_off(memory.movement, group.spawn_tiles);
+
             break;
         }
     }
@@ -493,6 +568,7 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
         ? farm_constants::kRespawnWalkFactor : 1.0f;
     const auto best = select_best_camp(match, field, dps, round, walk_factor);
     if (!best) {
+
         return;
     }
 
@@ -500,7 +576,10 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
 
     if (group.reward_waiting) {
         const auto position = me.position();
-        if (group.spawn_tiles.is_set(position)) return;
+        if (group.spawn_tiles.is_set(position)) {
+
+            return;
+        }
         cambc::bitboard occupied;
         for (const auto& ally : visible_allies) occupied.set(ally.position);
         std::optional<cambc::vec2> destination;
@@ -510,29 +589,55 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
             const int distance = field.get(tile);
             if (distance < nearest) { nearest = distance; destination = tile; }
         }
-        if (destination) nav::move_towards(memory.movement, *destination, true, true);
+        if (destination) {
+            nav::move_towards(memory.movement, *destination, true, true);
+
+        }
         else {
             beside_tiles(match, group);
-            if (!group.beside_tiles.is_set(position) && !group.beside_positions.empty())
-                nav::move_towards(memory.movement, group.beside_positions.front(), true, false);
+            if (!group.beside_tiles.is_set(position) && !group.beside_positions.empty()) {
+                const auto fallback = group.beside_positions.front();
+                nav::move_towards(memory.movement, fallback, true, false);
+
+            }
         }
+
         return;
     }
 
-    std::vector<const cambc::camp*> candidates;
+    const auto candidate_origin = cached_self_position ? *cached_self_position : me.position();
+    auto my_pos = candidate_origin;
+    std::vector<CampCandidate> candidates;
     std::vector<CampThreat> camp_threats;
     for (const auto& camp : *group.view) {
         try {
-            if (!camp.is_visible() || camp.health() <= 0) continue;
-            candidates.push_back(&camp);
+            if (!camp.is_visible()) continue;
+            const auto health = camp.health();
+            if (health <= 0) continue;
+            const auto position = camp.position();
+            const auto kind = camp.kind();
+            candidates.push_back({
+                &camp,
+                kind,
+                position,
+                health,
+                farm_constants::get_camp_priority_rank(kind),
+                static_cast<int>(position.chebyshev_distance(candidate_origin)),
+            });
             if (heart_shield_can_cast) {
-                camp_threats.push_back({camp.position(), camp.attack_range(), camp.strength() > 0.0f});
+                camp_threats.push_back({position, camp.attack_range(), camp.strength() > 0.0f});
             }
         } catch (const cambc::error&) {
             // Hidden camps are not actionable.
         }
     }
+    std::sort(candidates.begin(), candidates.end(), [](const auto& a, const auto& b) {
+        return is_better_candidate(a, b);
+    });
+    cambc::bitboard live_camp_tiles;
+    for (const auto& camp : candidates) live_camp_tiles.set(camp.position);
     if (candidates.empty()) {
+
         if (respawn_remaining(group, round) > 0) {
             beside_tiles(match, group);
             const auto position = cached_self_position ? *cached_self_position : me.position();
@@ -546,13 +651,31 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
                         destination = tile;
                     }
                 }
-                if (destination) nav::move_towards(memory.movement, *destination, true, false);
+                if (destination) {
+                    nav::move_towards(memory.movement, *destination, true, false);
+
+                }
             }
         } else {
             // Unknown, hidden, reward-available, or expired: keep the established fallback.
             nav::move_towards(memory.movement, group.centre, true, true);
+
         }
+
         return;
+    }
+
+    // Select the first ranked camp with an open neighboring tile for melee.
+    // Keep the full list for post-move attacks and abilities.
+    const CampCandidate* preferred_target = profile.is_ranged ? &candidates.front() : nullptr;
+    if (!profile.is_ranged) {
+        for (const auto& candidate : candidates) {
+            const bool surrounded = surrounded_by_live_camps(candidate.position, live_camp_tiles);
+            if (!surrounded) {
+                preferred_target = &candidate;
+                break;
+            }
+        }
     }
 
     bool ability_cast = false;
@@ -568,23 +691,19 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
         if (threatened) {
             try {
                 ability_cast = (*heart_abilities)[0].use();
+
             } catch (const cambc::error&) {
+
                 // A failed shield cast leaves the turn's cast available.
             }
         }
     }
-    auto my_pos = cached_self_position ? *cached_self_position : me.position();
     const auto attack_tiles = me.attack_tiles();
-    const cambc::camp* preferred_target = nullptr;
-    const cambc::camp* attack_target = best_attack_target(candidates, attack_tiles, my_pos);
-    for (const auto* camp : candidates) {
-        if (!preferred_target || is_better_candidate(*camp, *preferred_target, my_pos)) {
-            preferred_target = camp;
-        }
-    }
+    const CampCandidate* attack_target = best_attack_target(
+        candidates, attack_tiles, my_pos, profile.is_ranged ? nullptr : preferred_target);
     if (me.can_cast() && !ability_cast) {
         cambc::ability* best_ability = nullptr;
-        const cambc::camp* best_target = nullptr;
+        const CampCandidate* best_target = nullptr;
         cambc::vec2 best_destination{};
         bool best_uses_destination = false;
         float best_damage = 0.0f;
@@ -613,7 +732,7 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
                     continue;
                 }
 
-                const cambc::camp* target = nullptr;
+                const CampCandidate* target = nullptr;
                 cambc::vec2 destination{};
                 bool uses_destination = false;
                 if (dash_damage) {
@@ -621,37 +740,28 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
                     cambc::bitboard legal_landings;
                     nav::filter_legal_dash_landings(memory.movement, my_pos, valid_tiles, legal_landings);
                     const auto landing_positions = legal_landings.positions();
-                    std::vector<const cambc::camp*> dash_targets;
-                    dash_targets.reserve(candidates.size());
                     const auto maximum_camp_distance = static_cast<std::uint32_t>(dash.radius + 2);
-                    for (const auto* camp : candidates) {
-                        if (camp->position().chebyshev_distance(my_pos) <= maximum_camp_distance) {
-                            dash_targets.push_back(camp);
-                        }
-                    }
-                    std::sort(dash_targets.begin(), dash_targets.end(), [&](const auto* a, const auto* b) {
-                        return is_better_candidate(*a, *b, my_pos);
-                    });
-                    for (const auto* camp : dash_targets) {
-                        const auto camp_position = camp->position();
+                    for (const auto& camp : candidates) {
+                        if (camp.distance > static_cast<int>(maximum_camp_distance)) continue;
+                        const auto camp_position = camp.position;
                         int nearest_destination = 1 << 20;
                         for (const auto tile : landing_positions) {
                             if (tile == camp_position || tile.chebyshev_distance(camp_position) > dash.radius) continue;
                             const int distance = static_cast<int>(tile.chebyshev_distance(my_pos));
                             if (distance < nearest_destination) {
-                                target = camp;
+                                target = &camp;
                                 destination = tile;
                                 uses_destination = true;
                                 nearest_destination = distance;
                             }
                         }
-                        if (target == camp) break;
+                        if (target == &camp) break;
                     }
                 } else {
-                    for (const auto* camp : candidates) {
-                        if (valid_tiles.is_set(camp->position()) &&
-                            (!target || is_better_candidate(*camp, *target, my_pos))) {
-                            target = camp;
+                    for (const auto& camp : candidates) {
+                        if (valid_tiles.is_set(camp.position)) {
+                            target = &camp;
+                            break;
                         }
                     }
                 }
@@ -671,10 +781,11 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
             try {
                 ability_cast = best_uses_destination
                     ? best_ability->use(best_destination)
-                    : best_ability->use(*best_target);
+                    : best_ability->use(*best_target->view);
+
                 position_changed = ability_cast && best_uses_destination;
                 if (ability_cast && best_ability->is_dash()) memory.movement.cooldown = kDashCooldown;
-                if (ability_cast) note_kill_cooldown_reset(memory, *best_target);
+                if (ability_cast) note_kill_cooldown_reset(memory, *best_target->view);
                 if (ability_cast) {
                     std::visit([&ability_exclusive_movement](auto&& payload) {
                         using T = std::decay_t<decltype(payload)>;
@@ -684,6 +795,7 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
                     }, best_ability->info().value());
                 }
             } catch (const cambc::error&) {
+
                 // A failed ability cast leaves movement and attacks available.
             }
         }
@@ -692,21 +804,34 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
         bool should_move;
         if (profile.is_ranged && !farm_constants::kRangedWalkToPriority) {
             should_move = attack_target == nullptr;
+        } else if (preferred_target) {
+            should_move = !attack_tiles.is_set(preferred_target->position);
         } else {
-            should_move = !attack_tiles.is_set(preferred_target->position());
+            should_move = false;
         }
         if (should_move) {
-            position_changed = nav::move_towards(
-                memory.movement, preferred_target->position(), attack_target == nullptr, true);
+            if (!profile.is_ranged) {
+                // A failed SDK move is diagnostic; do not try lower-ranked targets.
+                position_changed = nav::move_towards(
+                    memory.movement, preferred_target->position, attack_target == nullptr, true);
+            } else {
+                for (const auto& candidate : candidates) {
+                    position_changed = nav::move_towards(
+                        memory.movement, candidate.position, attack_target == nullptr, true);
+                    if (position_changed) break;
+                }
+            }
         }
     }
     if (position_changed) my_pos = me.position();
     const auto current_attack_tiles = position_changed ? me.attack_tiles() : attack_tiles;
-    attack_target = best_attack_target(candidates, current_attack_tiles, my_pos);
+    attack_target = best_attack_target(
+        candidates, current_attack_tiles, my_pos, profile.is_ranged ? nullptr : preferred_target);
     if (me.can_attack() && attack_target) {
         try {
-            me.attack(*attack_target);
-            note_kill_cooldown_reset(memory, *attack_target);
+            me.attack(*attack_target->view);
+
+            note_kill_cooldown_reset(memory, *attack_target->view);
 
             // A reset ability can only be used if this turn's spell cast is still available.
             if (!ability_cast) {
@@ -719,16 +844,20 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
                     bool reset_used = false;
                     try {
                         reset_used = ability.use();
+
                     } catch (const cambc::error&) {
+
                     }
                     if (reset_used) {
                         const auto reset_attack_tiles = me.attack_tiles();
                         const auto second_target = best_attack_target(candidates, reset_attack_tiles, my_pos);
                         if (me.can_attack() && second_target) {
                             try {
-                                me.attack(*second_target);
-                                note_kill_cooldown_reset(memory, *second_target);
+                                me.attack(*second_target->view);
+
+                                note_kill_cooldown_reset(memory, *second_target->view);
                             } catch (const cambc::error&) {
+
                             }
                         }
                     }
@@ -736,6 +865,7 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
                 }
             }
         } catch (const cambc::error&) {
+
         }
     }
     return;

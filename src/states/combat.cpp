@@ -111,6 +111,7 @@ void fight_target(Enemy& target, BotMemory& memory, std::uint32_t round) {
             if (threatened) {
                 try { ability_used = shield.use(); }
                 catch (const cambc::error&) { }
+
             }
         }
 
@@ -147,6 +148,7 @@ void fight_target(Enemy& target, BotMemory& memory, std::uint32_t round) {
         if (best_ability) {
             try {
                 ability_used = best_landing ? best_ability->use(*best_landing) : best_ability->use(target.view);
+
                 if (ability_used) {
                     if (best_ability->is_dash()) memory.movement.cooldown = 8;
                     if (best_landing) {
@@ -156,6 +158,7 @@ void fight_target(Enemy& target, BotMemory& memory, std::uint32_t round) {
                     note_damage(memory, target, round);
                 }
             } catch (const cambc::error&) {
+
                 // A rejected spell leaves any unused attack or movement available.
             }
         }
@@ -164,6 +167,7 @@ void fight_target(Enemy& target, BotMemory& memory, std::uint32_t round) {
     auto attack_tiles = me.attack_tiles();
     if (me.can_move() && !attack_tiles.is_set(target.position)) {
         moved = nav::move_towards(memory.movement, target.position, true, false);
+
         if (moved) {
             my_position = me.position();
             attack_tiles = me.attack_tiles();
@@ -173,6 +177,7 @@ void fight_target(Enemy& target, BotMemory& memory, std::uint32_t round) {
     if (me.can_attack() && attack_tiles.is_set(target.position)) {
         try {
             me.attack(target.view);
+
             note_damage(memory, target, round);
             if (!ability_used) {
                 auto abilities = me.abilities();
@@ -180,10 +185,13 @@ void fight_target(Enemy& target, BotMemory& memory, std::uint32_t round) {
                     auto& ability = abilities[slot];
                     if (!ability.is_attack_reset() || !ability.is_ready()) continue;
                     try {
-                        if (ability.use()) {
+                        const bool reset_used = ability.use();
+
+                        if (reset_used) {
                             const auto after_reset_tiles = me.attack_tiles();
                             if (me.can_attack() && after_reset_tiles.is_set(target.view.position())) {
                                 me.attack(target.view);
+
                                 note_damage(memory, target, round);
                             }
                         }
@@ -192,6 +200,7 @@ void fight_target(Enemy& target, BotMemory& memory, std::uint32_t round) {
                 }
             }
         } catch (const cambc::error&) {
+
             // The target may have moved or become invalid before the attack.
         }
     }
@@ -203,6 +212,7 @@ bool combat_turn(MatchData& match, BotMemory& memory) {
     const auto round = cambc::round_number();
     const auto my_position = me.position();
     const auto& visible = visible_enemies_for_round(match);
+
     std::vector<Enemy> enemies;
     enemies.reserve(visible.size());
     for (auto& champion : visible) {
@@ -258,9 +268,22 @@ bool combat_turn(MatchData& match, BotMemory& memory) {
         memory.pursuit_last_damage_round = round;
     } else if (!target) {
         target = best_nearby;
-        if (!target) return false;
+        if (!target) {
+
+            return false;
+        }
         memory.pursuit_target = target->handle;
         memory.pursuit_last_damage_round = round;
+    }
+
+    if (me.is_submitting_gems()) {
+        try {
+            me.cancel_submit_gems();
+
+        } catch (const cambc::error&) {
+
+            return true;
+        }
     }
 
     fight_target(*target, memory, round);

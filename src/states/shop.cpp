@@ -79,6 +79,7 @@ void buy_alternating_bruiser(Champion& me, cambc::enum_map<cambc::item_type>& in
         }
 
         const auto count = std::min<std::uint32_t>(5 - inventory[shard], gold / 30);
+
         me.buy(shard, count);
         gold -= count * 30;
         inventory[shard] += count;
