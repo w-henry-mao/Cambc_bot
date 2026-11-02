@@ -39,7 +39,7 @@ bool prism_is_alone(BotMemory& memory) {
         try {
             if (static_cast<cambc::handle_champion_t>(ally) == static_cast<cambc::handle_champion_t>(self) ||
                 !ally.is_alive()) continue;
-            if (ally.position().chebyshev_distance(position) <= 3) {
+            if (ally.position().chebyshev_distance(position) <= 5) {
                 ally_near = true;
                 break;
             }
