@@ -3,8 +3,25 @@
 #include "states/state_selector.h"
 #include "states/shop.h"
 #include "states/tribute.h"
+#include "core/team_strategy.h"
 #include "champions/registry.h"
 #include <cambc.h>
+
+namespace {
+constexpr std::uint32_t kPrismRespawnRounds = 60;
+constexpr std::uint32_t kPrismRespawnRegroupLead = 5;
+
+bool prism_has_home_emblem() {
+    try {
+        const auto counts = cambc::self().item_count();
+        return counts[cambc::item_type::home_emblem_of_strength] > 0 ||
+            counts[cambc::item_type::home_emblem_of_focus] > 0 ||
+            counts[cambc::item_type::home_emblem_of_health] > 0;
+    } catch (const cambc::error&) {
+        return false;
+    }
+}
+}
 
 Bot::Bot() : profile_(nullptr) {}
 
@@ -50,11 +67,54 @@ void Bot::play_turn() {
 
     update_final_tribute(memory_);
 
+    const bool is_prism = me.champion_name() == cambc::champion_type::prism;
+    const auto command = team_strategy::read();
+    if (is_prism && !me.is_alive()) {
+        team_strategy::publish(team_strategy::Mode::prism_dead, {127, 127});
+    } else if (!is_prism && command.mode == team_strategy::Mode::prism_dead) {
+        if (memory_.prism_dead_since_round == std::numeric_limits<std::uint32_t>::max())
+            memory_.prism_dead_since_round = round;
+        if (round >= memory_.prism_dead_since_round &&
+            round - memory_.prism_dead_since_round >= kPrismRespawnRounds - kPrismRespawnRegroupLead)
+            memory_.prism_regroup_active = true;
+    } else if (is_prism) {
+        if (command.mode != team_strategy::Mode::arrived) {
+            const auto target = team_strategy::valid_position(command.target_position)
+                ? std::optional<cambc::vec2>{command.target_position} : std::nullopt;
+            team_strategy::publish(command.mode, me.position(), target);
+        }
+    } else {
+        memory_.prism_dead_since_round = std::numeric_limits<std::uint32_t>::max();
+        memory_.prism_regroup_active = false;
+    }
+
+    if (!is_prism && !final_tribute_active() && command.mode == team_strategy::Mode::arrived &&
+        me.is_alive()) {
+        const bool on_spawn = cambc::map::spawn_region(cambc::team::ally).is_set(me.position());
+        const bool healthy_near_prism = team_strategy::valid_position(command.prism_position) &&
+            me.health() >= me.max_health() &&
+            me.position().chebyshev_distance(command.prism_position) <= 2;
+        if (on_spawn || healthy_near_prism) {
+            if (const auto slot = team_strategy::self_slot()) team_strategy::acknowledge_recall_arrival(*slot);
+        }
+    }
+
     if (memory_.recall_channel_started) {
-        if (me.is_recalling()) return;
+        if (me.is_recalling()) {
+            if (is_prism) {
+                const auto mode = prism_has_home_emblem() ? team_strategy::Mode::recalling_home
+                                                           : team_strategy::Mode::recalling;
+                team_strategy::publish(mode, me.position());
+            }
+            return;
+        }
         memory_.recall_channel_started = false;
         if (cambc::map::spawn_region(cambc::team::ally).is_set(me.position())) {
             memory_.spawn_arrival_round = round;
+            if (is_prism) {
+                if (!final_tribute_active()) team_strategy::clear_recall_ack_mask();
+                team_strategy::publish(team_strategy::Mode::arrived, me.position());
+            }
         }
     }
     shop_at_spawn_or_death();

@@ -1,6 +1,7 @@
 #include "tribute.h"
 #include "../nav/pathfinding.h"
 #include "../core/rng.h"
+#include "../core/team_strategy.h"
 #include <cambc.h>
 #include <algorithm>
 #include <cstdint>
@@ -17,55 +18,61 @@ constexpr std::uint32_t kLateFinalTributeGemThreshold = 100;
 constexpr std::size_t kMaxTeamSize = 5;
 
 enum class FinalTributeMode : std::uint8_t { inactive, recalling, escorting };
-enum class FinalTributeStatus : std::uint8_t {
-    unknown, alive_away, alive_at_spawn, dead_respawning_soon, dead_respawning_later
+enum class FinalTributeReadiness : std::uint8_t {
+    unknown, not_ready, alive_at_spawn, dead_respawning_later
 };
 
-constexpr std::size_t kModeOffset = 0;
-constexpr std::size_t kAltarXOffset = 1;
-constexpr std::size_t kAltarYOffset = 2;
-constexpr std::size_t kStatusLowOffset = 3;
-constexpr std::size_t kStatusHighOffset = 4;
-constexpr std::uint8_t kNoAltar = 0xff;
-// Shared bytes 0-2 hold mode and altar coordinates; bytes 3-4 pack five 3-bit champion statuses.
+constexpr std::size_t kFinalTributeWordOffset = team_strategy::layout::kFinalTributeWordByteOffset;
+constexpr std::uint32_t kNoAltar = 127;
+constexpr unsigned kTributeModeOffset = team_strategy::layout::kFinalTributeModeOffset;
+constexpr unsigned kAltarXOffset = team_strategy::layout::kAltarXOffset;
+constexpr unsigned kAltarYOffset = team_strategy::layout::kAltarYOffset;
+constexpr unsigned kStatusOffset = team_strategy::layout::kFinalTributeStatusesOffset;
 
 FinalTributeMode final_tribute_mode() {
-    return static_cast<FinalTributeMode>(static_cast<std::uint8_t>(cambc::shared_memory[kModeOffset]));
+    return static_cast<FinalTributeMode>(team_strategy::get_bits(
+        team_strategy::read_word(kFinalTributeWordOffset), kTributeModeOffset, 2));
 }
 
 void set_final_tribute_mode(FinalTributeMode mode) {
-    cambc::shared_memory[kModeOffset] = static_cast<std::uint8_t>(mode);
+    auto word = team_strategy::read_word(kFinalTributeWordOffset);
+    team_strategy::set_bits(word, kTributeModeOffset, 2, static_cast<std::uint8_t>(mode));
+    team_strategy::write_word(kFinalTributeWordOffset, word);
 }
 
-std::uint16_t read_statuses() {
-    const auto low = static_cast<std::uint8_t>(cambc::shared_memory[kStatusLowOffset]);
-    const auto high = static_cast<std::uint8_t>(cambc::shared_memory[kStatusHighOffset]);
-    return static_cast<std::uint16_t>(low | (static_cast<std::uint16_t>(high) << 8));
+FinalTributeReadiness read_status(std::uint8_t slot) {
+    const auto word = team_strategy::read_word(kFinalTributeWordOffset);
+    return static_cast<FinalTributeReadiness>(team_strategy::get_bits(
+        word, kStatusOffset + slot * team_strategy::layout::kFinalTributeStatusBits,
+        team_strategy::layout::kFinalTributeStatusBits));
 }
 
-void write_statuses(std::uint16_t statuses) {
-    cambc::shared_memory[kStatusLowOffset] = static_cast<std::uint8_t>(statuses & 0xff);
-    cambc::shared_memory[kStatusHighOffset] = static_cast<std::uint8_t>(statuses >> 8);
+void write_status(std::uint8_t slot, FinalTributeReadiness status) {
+    auto word = team_strategy::read_word(kFinalTributeWordOffset);
+    team_strategy::set_bits(word,
+        kStatusOffset + slot * team_strategy::layout::kFinalTributeStatusBits,
+        team_strategy::layout::kFinalTributeStatusBits, static_cast<std::uint8_t>(status));
+    team_strategy::write_word(kFinalTributeWordOffset, word);
 }
 
-FinalTributeStatus read_status(std::uint8_t slot) {
-    const auto statuses = read_statuses();
-    return static_cast<FinalTributeStatus>((statuses >> (slot * 3)) & 0x7);
+std::uint32_t read_altar_coordinate(unsigned offset) {
+    return team_strategy::get_bits(team_strategy::read_word(kFinalTributeWordOffset), offset, 7);
 }
 
-void write_status(std::uint8_t slot, FinalTributeStatus status) {
-    auto statuses = read_statuses();
-    const auto shift = slot * 3;
-    const auto mask = static_cast<std::uint16_t>(0x7u << shift);
-    statuses = static_cast<std::uint16_t>((statuses & ~mask) |
-        (static_cast<std::uint16_t>(status) << shift));
-    write_statuses(statuses);
+void write_altar(std::uint32_t x, std::uint32_t y) {
+    auto word = team_strategy::read_word(kFinalTributeWordOffset);
+    team_strategy::set_bits(word, kAltarXOffset, 7, x);
+    team_strategy::set_bits(word, kAltarYOffset, 7, y);
+    team_strategy::write_word(kFinalTributeWordOffset, word);
 }
 
 void clear_final_tribute_state() {
-    cambc::shared_memory[kAltarXOffset] = kNoAltar;
-    cambc::shared_memory[kAltarYOffset] = kNoAltar;
-    write_statuses(0);
+    auto word = team_strategy::read_word(kFinalTributeWordOffset);
+    team_strategy::set_bits(word, kAltarXOffset, 7, kNoAltar);
+    team_strategy::set_bits(word, kAltarYOffset, 7, kNoAltar);
+    team_strategy::set_bits(word, kStatusOffset,
+                            team_strategy::layout::kFinalTributeStatusBits * kMaxTeamSize, 0);
+    team_strategy::write_word(kFinalTributeWordOffset, word);
 }
 
 void activate_final_tribute() {
@@ -147,17 +154,16 @@ void publish_final_tribute_status(BotMemory& memory) {
     if (me.is_alive()) {
         memory.final_tribute_death_round_initialized = false;
         const auto status = is_at_ally_spawn(me.position())
-            ? FinalTributeStatus::alive_at_spawn : FinalTributeStatus::alive_away;
+            ? FinalTributeReadiness::alive_at_spawn : FinalTributeReadiness::not_ready;
         write_status(memory.final_tribute_slot, status);
         if (me.champion_name() == cambc::champion_type::prism &&
             final_tribute_mode() == FinalTributeMode::recalling &&
-            status == FinalTributeStatus::alive_at_spawn &&
+            status == FinalTributeReadiness::alive_at_spawn &&
             !me.is_recalling() &&
-            cambc::shared_memory[kAltarXOffset] == kNoAltar) {
+            read_altar_coordinate(kAltarXOffset) == kNoAltar) {
             const auto altar = closest_altar(me.position());
             if (altar) {
-                cambc::shared_memory[kAltarXOffset] = static_cast<std::uint8_t>(altar->x);
-                cambc::shared_memory[kAltarYOffset] = static_cast<std::uint8_t>(altar->y);
+                write_altar(static_cast<std::uint32_t>(altar->x), static_cast<std::uint32_t>(altar->y));
             }
         }
         return;
@@ -170,8 +176,8 @@ void publish_final_tribute_status(BotMemory& memory) {
     }
     const auto dead_rounds = round - memory.final_tribute_death_round;
     const auto status = dead_rounds + kRespawnWaitWindow >= kChampionRespawnRounds
-        ? FinalTributeStatus::dead_respawning_soon
-        : FinalTributeStatus::dead_respawning_later;
+        ? FinalTributeReadiness::not_ready
+        : FinalTributeReadiness::dead_respawning_later;
     write_status(memory.final_tribute_slot, status);
 }
 
@@ -181,10 +187,9 @@ bool all_required_champions_ready(const BotMemory& memory) {
     if (champions.size() > kMaxTeamSize) return false;
     for (std::size_t slot = 0; slot < champions.size(); ++slot) {
         const auto status = read_status(static_cast<std::uint8_t>(slot));
-        const auto& champion = champions[slot];
-        if (champion.is_alive()) {
-            if (status != FinalTributeStatus::alive_at_spawn) return false;
-        } else if (status != FinalTributeStatus::dead_respawning_later) {
+        if (champions[slot].is_alive()) {
+            if (status != FinalTributeReadiness::alive_at_spawn) return false;
+        } else if (status != FinalTributeReadiness::dead_respawning_later) {
             return false;
         }
     }
@@ -337,15 +342,15 @@ bool final_tribute_turn(BotMemory& memory) {
     if (mode == FinalTributeMode::recalling) {
         if (cambc::self().champion_name() != cambc::champion_type::prism ||
             !all_required_champions_ready(memory) ||
-            cambc::shared_memory[kAltarXOffset] == kNoAltar ||
-            cambc::shared_memory[kAltarYOffset] == kNoAltar) return true;
+            read_altar_coordinate(kAltarXOffset) == kNoAltar ||
+            read_altar_coordinate(kAltarYOffset) == kNoAltar) return true;
         mode = FinalTributeMode::escorting;
         set_final_tribute_mode(mode);
     }
 
     const cambc::vec2 altar{
-        static_cast<std::int32_t>(static_cast<std::uint8_t>(cambc::shared_memory[kAltarXOffset])),
-        static_cast<std::int32_t>(static_cast<std::uint8_t>(cambc::shared_memory[kAltarYOffset]))
+        static_cast<std::int32_t>(read_altar_coordinate(kAltarXOffset)),
+        static_cast<std::int32_t>(read_altar_coordinate(kAltarYOffset))
     };
     auto& me = cambc::self();
     if (me.champion_name() == cambc::champion_type::prism) {
@@ -364,6 +369,18 @@ bool final_tribute_turn(BotMemory& memory) {
         try {
             me.cancel_submit_gems();
         } catch (const cambc::error&) { }
+    }
+
+    const auto command = team_strategy::read();
+    if (team_strategy::valid_position(command.prism_position)) {
+        const auto position = me.position();
+        if (position.chebyshev_distance(command.prism_position) > 3) {
+            nav::move_into_radius(memory.movement, command.prism_position, 3, true);
+            return true;
+        }
+        memory.movement.movement_guard_center = command.prism_position;
+        memory.movement.movement_guard_radius = 3;
+        if (command.prism_position.chebyshev_distance(altar) > 1) return true;
     }
     return guard_altar(memory, altar);
 }

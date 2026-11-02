@@ -25,6 +25,8 @@ struct MovementMemory {
     bool resets_cooldowns_on_kill = false;
     int cooldown = 0;
     std::optional<cambc::ability> ability;
+    std::optional<cambc::vec2> movement_guard_center;
+    int movement_guard_radius = 0;
     PathScratch scratch;
 };
 
@@ -32,6 +34,8 @@ struct MovementMemory {
 // A forbidden mask constrains both walking and dash landing tiles.
 bool move_towards(MovementMemory& movement, cambc::vec2 target, bool allow_dash = true,
                   bool target_is_camp = false);
+bool move_into_radius(MovementMemory& movement, cambc::vec2 center, int radius,
+                      bool fallback_to_closest = false);
 bool move_off(MovementMemory& movement, const cambc::bitboard& forbidden_tiles);
 void filter_legal_dash_landings(MovementMemory& movement, cambc::vec2 start,
                                 const cambc::bitboard& in_range, cambc::bitboard& legal);

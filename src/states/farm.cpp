@@ -444,7 +444,7 @@ bool retreat_to_spawn(BotMemory& memory, MatchData& match, bool include_enemy_th
     return true;
 }
 
-bool recall_turn(MatchData& match, BotMemory& memory, bool force_recall) {
+bool recall_turn(MatchData& match, BotMemory& memory, bool force_recall, float active_fight_distance) {
     auto& me = cambc::self();
     const auto position = me.position();
     const bool at_spawn = cambc::map::spawn_region(cambc::team::ally).is_set(position);
@@ -454,7 +454,7 @@ bool recall_turn(MatchData& match, BotMemory& memory, bool force_recall) {
     for (const auto& enemy : enemies) {
         try {
             if (!enemy.is_alive()) continue;
-            if (enemy.position().chebyshev_distance(position) <= 5.0f ||
+            if (enemy.position().chebyshev_distance(position) <= active_fight_distance ||
                 (memory.pursuit_target && static_cast<cambc::handle_champion_t>(enemy) == *memory.pursuit_target)) {
                 active_fight = true;
                 break;
@@ -493,8 +493,18 @@ bool recall_turn(MatchData& match, BotMemory& memory, bool force_recall) {
     return result;
 }
 
-void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memory) {
+void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memory,
+               std::optional<cambc::vec2> coordinated_target,
+               cambc::vec2* selected_target,
+               FarmMovementStatus* movement_status) {
     auto& me = cambc::self();
+    if (movement_status) *movement_status = {};
+    const auto move_towards_target = [&](cambc::vec2 target, bool allow_dash, bool target_is_camp) {
+        if (movement_status) movement_status->attempted = true;
+        const bool moved = nav::move_towards(memory.movement, target, allow_dash, target_is_camp);
+        if (movement_status && moved) movement_status->succeeded = true;
+        return moved;
+    };
     std::optional<decltype(me.abilities())> heart_abilities;
     bool heart_shield_can_cast = false;
 
@@ -566,13 +576,23 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
 
     const float walk_factor = (profile.is_ranged || memory.movement.has_dash)
         ? farm_constants::kRespawnWalkFactor : 1.0f;
-    const auto best = select_best_camp(match, field, dps, round, walk_factor);
+    std::optional<int> best;
+    if (coordinated_target) {
+        const auto found = std::find_if(match.camp_groups.begin(), match.camp_groups.end(), [&](const auto& group) {
+            return group.centre == *coordinated_target;
+        });
+        if (found == match.camp_groups.end()) return;
+        best = static_cast<int>(std::distance(match.camp_groups.begin(), found));
+    } else {
+        best = select_best_camp(match, field, dps, round, walk_factor);
+    }
     if (!best) {
 
         return;
     }
 
     auto& group = match.camp_groups[static_cast<std::size_t>(*best)];
+    if (selected_target) *selected_target = group.centre;
 
     if (group.reward_waiting) {
         const auto position = me.position();
@@ -590,14 +610,14 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
             if (distance < nearest) { nearest = distance; destination = tile; }
         }
         if (destination) {
-            nav::move_towards(memory.movement, *destination, true, true);
+            move_towards_target(*destination, true, true);
 
         }
         else {
             beside_tiles(match, group);
             if (!group.beside_tiles.is_set(position) && !group.beside_positions.empty()) {
                 const auto fallback = group.beside_positions.front();
-                nav::move_towards(memory.movement, fallback, true, false);
+                move_towards_target(fallback, true, false);
 
             }
         }
@@ -652,13 +672,13 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
                     }
                 }
                 if (destination) {
-                    nav::move_towards(memory.movement, *destination, true, false);
+                    move_towards_target(*destination, true, false);
 
                 }
             }
         } else {
             // Unknown, hidden, reward-available, or expired: keep the established fallback.
-            nav::move_towards(memory.movement, group.centre, true, true);
+            move_towards_target(group.centre, true, true);
 
         }
 
@@ -747,6 +767,9 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
                         int nearest_destination = 1 << 20;
                         for (const auto tile : landing_positions) {
                             if (tile == camp_position || tile.chebyshev_distance(camp_position) > dash.radius) continue;
+                            if (memory.movement.movement_guard_center &&
+                                tile.chebyshev_distance(*memory.movement.movement_guard_center) >
+                                    static_cast<std::uint32_t>(memory.movement.movement_guard_radius)) continue;
                             const int distance = static_cast<int>(tile.chebyshev_distance(my_pos));
                             if (distance < nearest_destination) {
                                 target = &camp;
@@ -812,12 +835,12 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
         if (should_move) {
             if (!profile.is_ranged) {
                 // A failed SDK move is diagnostic; do not try lower-ranked targets.
-                position_changed = nav::move_towards(
-                    memory.movement, preferred_target->position, attack_target == nullptr, true);
+                position_changed = move_towards_target(
+                    preferred_target->position, attack_target == nullptr, true);
             } else {
                 for (const auto& candidate : candidates) {
-                    position_changed = nav::move_towards(
-                        memory.movement, candidate.position, attack_target == nullptr, true);
+                    position_changed = move_towards_target(
+                        candidate.position, attack_target == nullptr, true);
                     if (position_changed) break;
                 }
             }

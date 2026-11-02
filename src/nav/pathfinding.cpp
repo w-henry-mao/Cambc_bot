@@ -108,9 +108,29 @@ void filter_legal_dash_landings(MovementMemory& movement, cambc::vec2 start,
 }
 
 namespace {
-bool walk_towards(cambc::vec2 target) {
+bool walk_towards(MovementMemory& movement, cambc::vec2 target) {
     auto& me = cambc::self();
     if (!me.can_move()) return false;
+    if (movement.movement_guard_center) {
+        const auto position = me.position();
+        auto& scratch = movement.scratch;
+        refresh_landing_blocked(scratch, position);
+        scratch.route_blocked = scratch.landing_blocked;
+        scratch.route_blocked.set(target, false);
+        scratch.goals.clear();
+        scratch.goals.set(target);
+        scratch.visited.clear();
+        scratch.goal_field.compute(scratch.route_blocked, scratch.goals, scratch.visited);
+        const auto step = scratch.goal_field.next_move_from(position);
+        if (!step || (position + *step).chebyshev_distance(*movement.movement_guard_center) >
+                         static_cast<std::uint32_t>(movement.movement_guard_radius)) return false;
+        try {
+            me.move(*step);
+            return true;
+        } catch (const cambc::error&) {
+            return false;
+        }
+    }
     try {
         return me.move_towards(target);
     } catch (const cambc::error&) {
@@ -133,7 +153,7 @@ bool move_towards(MovementMemory& movement, cambc::vec2 target, bool allow_dash,
     const auto direct_distance = position.chebyshev_distance(target);
     if (movement.is_heart_of_ruin && target_is_camp &&
         direct_distance < kHeartOfRuinMinCampDistance) {
-        const bool moved = walk_towards(target);
+        const bool moved = walk_towards(movement, target);
         return moved;
     }
 
@@ -147,7 +167,7 @@ bool move_towards(MovementMemory& movement, cambc::vec2 target, bool allow_dash,
         }
     }
     if (!can_dash) {
-        const bool moved = walk_towards(target);
+        const bool moved = walk_towards(movement, target);
         return moved;
     }
 
@@ -166,14 +186,14 @@ bool move_towards(MovementMemory& movement, cambc::vec2 target, bool allow_dash,
     goal_field.compute(route_blocked, goals, scratch.visited);
     const int distance = goal_field.get(position);
     if (distance == cambc::distance_field::unreachable) {
-        const bool moved = walk_towards(target);
+        const bool moved = walk_towards(movement, target);
         return moved;
     }
 
     const int minimum_distance = movement.is_heart_of_ruin && target_is_camp
         ? kHeartOfRuinMinCampDistance : kDashMinProgress;
     if (distance < minimum_distance) {
-        const bool moved = walk_towards(target);
+        const bool moved = walk_towards(movement, target);
         return moved;
     }
 
@@ -184,6 +204,9 @@ bool move_towards(MovementMemory& movement, cambc::vec2 target, bool allow_dash,
     for (const auto& option : kDashOptions) {
         const cambc::vec2 landing{position.x + option.dx, position.y + option.dy};
         if (!cambc::map::is_in_bounds(landing)) continue;
+        if (movement.movement_guard_center &&
+            landing.chebyshev_distance(*movement.movement_guard_center) >
+                static_cast<std::uint32_t>(movement.movement_guard_radius)) continue;
         const auto landing_distance = goal_field.get(landing);
         if (landing_distance == cambc::distance_field::unreachable) continue;
         const int progress = distance - std::max(static_cast<int>(landing_distance) - 1, 0);
@@ -214,15 +237,87 @@ bool move_towards(MovementMemory& movement, cambc::vec2 target, bool allow_dash,
         }
     }
     if (!dashed) {
-        const bool moved = walk_towards(target);
+        const bool moved = walk_towards(movement, target);
         return moved;
     }
 
     const auto current_position = me.position();
     if (const auto step = goal_field.next_move_from(current_position)) {
-        if (current_position + *step != target && me.can_move()) me.move(*step);
+        const auto next = current_position + *step;
+        const bool within_guard = !movement.movement_guard_center ||
+            next.chebyshev_distance(*movement.movement_guard_center) <=
+                static_cast<std::uint32_t>(movement.movement_guard_radius);
+        if (current_position + *step != target && within_guard && me.can_move()) me.move(*step);
     }
     return true;
+}
+
+bool move_into_radius(MovementMemory& movement, cambc::vec2 center, int radius,
+                      bool fallback_to_closest) {
+    auto& me = cambc::self();
+    const auto position = me.position();
+    if (!me.can_move()) return false;
+    if (position.chebyshev_distance(center) <= static_cast<std::uint32_t>(radius)) return true;
+
+    auto& scratch = movement.scratch;
+    scratch.route_blocked = cambc::map::walls() | cambc::map::holes() | cambc::map::altars() |
+        cambc::map::spawn_region(cambc::team::enemy);
+    cambc::vision::champion_tiles_into(cambc::team::ally, scratch.ally_tiles);
+    cambc::vision::champion_tiles_into(cambc::team::enemy, scratch.enemy_tiles);
+    cambc::vision::camp_tiles_into(scratch.camp_tiles);
+    cambc::vision::teleport_tiles_into(scratch.teleport_tiles);
+    scratch.route_blocked |= scratch.ally_tiles;
+    scratch.route_blocked |= scratch.enemy_tiles;
+    scratch.route_blocked |= scratch.camp_tiles;
+    scratch.route_blocked |= scratch.teleport_tiles;
+    scratch.route_blocked.set(position, false);
+
+    scratch.goals.clear();
+    scratch.goals.draw_chebyshev(center, static_cast<float>(radius));
+    scratch.goals &= ~scratch.route_blocked;
+
+    cambc::bitboard roots;
+    roots.set(position);
+    scratch.visited.clear();
+    scratch.goal_field.compute(scratch.route_blocked, roots, scratch.visited);
+    std::optional<cambc::vec2> destination;
+    auto shortest = cambc::distance_field::unreachable;
+    for (const auto tile : scratch.goals.positions()) {
+        const auto distance = scratch.goal_field.get(tile);
+        if (distance < shortest) {
+            shortest = distance;
+            destination = tile;
+        }
+    }
+    if (!destination && fallback_to_closest) {
+        for (int search_radius = radius + 1; search_radius < 100; ++search_radius) {
+            std::optional<cambc::vec2> ring_destination;
+            auto ring_shortest = cambc::distance_field::unreachable;
+            const auto consider = [&](cambc::vec2 tile) {
+                if (!cambc::map::is_in_bounds(tile)) return;
+                const auto distance = scratch.goal_field.get(tile);
+                if (distance != cambc::distance_field::unreachable && distance < ring_shortest) {
+                    ring_destination = tile;
+                    ring_shortest = distance;
+                }
+            };
+
+            for (int offset = -search_radius; offset <= search_radius; ++offset) {
+                consider({center.x + offset, center.y - search_radius});
+                consider({center.x + offset, center.y + search_radius});
+            }
+            for (int offset = -search_radius + 1; offset < search_radius; ++offset) {
+                consider({center.x - search_radius, center.y + offset});
+                consider({center.x + search_radius, center.y + offset});
+            }
+            if (ring_destination) {
+                destination = ring_destination;
+                break;
+            }
+        }
+    }
+    if (!destination) return false;
+    return move_towards(movement, *destination, true, false);
 }
 
 bool move_off(MovementMemory& movement, const cambc::bitboard& forbidden_tiles) {
@@ -236,6 +331,9 @@ bool move_off(MovementMemory& movement, const cambc::bitboard& forbidden_tiles) 
             const cambc::vec2 destination{position.x + dx, position.y + dy};
             if (!cambc::map::is_in_bounds(destination) || forbidden_tiles.is_set(destination) ||
                 movement.scratch.landing_blocked.is_set(destination)) continue;
+            if (movement.movement_guard_center &&
+                destination.chebyshev_distance(*movement.movement_guard_center) >
+                    static_cast<std::uint32_t>(movement.movement_guard_radius)) continue;
             try {
                 if (me.move({dx, dy})) return true;
             } catch (const cambc::error&) { }

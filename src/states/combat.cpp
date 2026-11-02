@@ -207,7 +207,8 @@ void fight_target(Enemy& target, BotMemory& memory, std::uint32_t round) {
 }
 }
 
-bool combat_turn(MatchData& match, BotMemory& memory) {
+bool combat_turn(MatchData& match, BotMemory& memory, float engage_distance,
+                 cambc::vec2* target_position, bool keep_mode_while_visible) {
     auto& me = cambc::self();
     const auto round = cambc::round_number();
     const auto my_position = me.position();
@@ -257,7 +258,7 @@ bool combat_turn(MatchData& match, BotMemory& memory) {
 
     Enemy* best_nearby = nullptr;
     for (auto& enemy : enemies) {
-        if (enemy.position.chebyshev_distance(my_position) > kEngageDistance) continue;
+        if (enemy.position.chebyshev_distance(my_position) > engage_distance) continue;
         if (memory.abandoned_pursuit_target && enemy.handle == *memory.abandoned_pursuit_target) continue;
         if (!best_nearby || is_better_target(enemy, *best_nearby, my_position)) best_nearby = &enemy;
     }
@@ -269,12 +270,22 @@ bool combat_turn(MatchData& match, BotMemory& memory) {
     } else if (!target) {
         target = best_nearby;
         if (!target) {
-
+            if (keep_mode_while_visible && !enemies.empty()) {
+                if (target_position) {
+                    const auto abandoned = std::find_if(enemies.begin(), enemies.end(), [&](const Enemy& enemy) {
+                        return memory.abandoned_pursuit_target && enemy.handle == *memory.abandoned_pursuit_target;
+                    });
+                    *target_position = abandoned != enemies.end() ? abandoned->position : enemies.front().position;
+                }
+                return true;
+            }
             return false;
         }
         memory.pursuit_target = target->handle;
         memory.pursuit_last_damage_round = round;
     }
+
+    if (target_position) *target_position = target->position;
 
     if (me.is_submitting_gems()) {
         try {
