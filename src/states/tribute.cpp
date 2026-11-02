@@ -282,6 +282,19 @@ void update_tribute_progress(BotMemory& memory) {
 void update_final_tribute(BotMemory& memory) {
     auto& me = cambc::self();
     const bool alive = me.is_alive();
+    if (me.champion_name() == cambc::champion_type::prism) {
+        const auto round = cambc::round_number();
+        if (!alive || !me.is_submitting_gems()) {
+            memory.prism_final_tribute_turns_remaining = 0;
+            memory.prism_final_tribute_last_channel_round = std::numeric_limits<std::uint32_t>::max();
+        } else if (memory.prism_final_tribute_last_channel_round != std::numeric_limits<std::uint32_t>::max() &&
+                   round > memory.prism_final_tribute_last_channel_round) {
+            const auto elapsed = round - memory.prism_final_tribute_last_channel_round;
+            memory.prism_final_tribute_turns_remaining = elapsed >= memory.prism_final_tribute_turns_remaining
+                ? 0 : memory.prism_final_tribute_turns_remaining - elapsed;
+            memory.prism_final_tribute_last_channel_round = round;
+        }
+    }
     if (alive) {
         memory.final_tribute_death_round_initialized = false;
     } else if (!memory.final_tribute_death_round_initialized) {
@@ -328,6 +341,35 @@ bool final_tribute_recall_phase() {
     return final_tribute_mode() == FinalTributeMode::recalling;
 }
 
+std::optional<std::uint32_t> prism_final_tribute_turns_to_completion(const BotMemory& memory) {
+    const auto me = cambc::self();
+    if (me.champion_name() != cambc::champion_type::prism || !final_tribute_active())
+        return std::nullopt;
+
+    if (me.is_submitting_gems()) {
+        if (memory.prism_final_tribute_last_channel_round == std::numeric_limits<std::uint32_t>::max())
+            return std::nullopt;
+        return memory.prism_final_tribute_turns_remaining;
+    }
+
+    auto mode = final_tribute_mode();
+    if (mode == FinalTributeMode::recalling) {
+        if (!all_required_champions_ready(memory) ||
+            read_altar_coordinate(kAltarXOffset) == kNoAltar ||
+            read_altar_coordinate(kAltarYOffset) == kNoAltar) return std::nullopt;
+    } else if (mode != FinalTributeMode::escorting) {
+        return std::nullopt;
+    }
+
+    const cambc::vec2 altar{
+        static_cast<std::int32_t>(read_altar_coordinate(kAltarXOffset)),
+        static_cast<std::int32_t>(read_altar_coordinate(kAltarYOffset))
+    };
+    const auto gems = me.gem_count();
+    if (gems == 0 || me.position().chebyshev_distance(altar) > 1) return std::nullopt;
+    return (gems + 9) / 10;
+}
+
 void pause_final_tribute_for_recall(BotMemory& memory) {
     if (cambc::self().champion_name() != cambc::champion_type::prism || !final_tribute_active()) return;
     memory.final_tribute_resume_round = cambc::round_number() + 1;
@@ -358,8 +400,11 @@ bool final_tribute_turn(BotMemory& memory, cambc::vec2* selected_target) {
     if (me.champion_name() == cambc::champion_type::prism) {
         if (me.is_submitting_gems()) return true;
         if (me.gem_count() > 0 && me.position().chebyshev_distance(altar) <= 1) {
+            const auto gems = me.gem_count();
             try {
                 me.submit_gems(altar);
+                memory.prism_final_tribute_turns_remaining = (gems + 9) / 10;
+                memory.prism_final_tribute_last_channel_round = cambc::round_number();
             } catch (const cambc::error&) { }
         } else if (me.position().chebyshev_distance(altar) > 1) {
             nav::move_towards(memory.movement, altar, true, false);

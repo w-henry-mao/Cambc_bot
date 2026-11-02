@@ -61,9 +61,19 @@ void publish_combat(cambc::vec2 target) {
     team_strategy::publish(team_strategy::Mode::combat, cambc::self().position(), target);
 }
 
+bool prism_should_preserve_nearby_final_tribute(const BotMemory& memory) {
+    const auto me = cambc::self();
+    if (!final_tribute_active() || me.health() < me.max_health() * 0.70f) return false;
+    const auto turns_remaining = prism_final_tribute_turns_to_completion(memory);
+    return turns_remaining && *turns_remaining <= 15;
+}
+
 bool final_tribute_turn_flow(MatchData& match, BotMemory& memory, bool prism) {
     cambc::vec2 target{127, 127};
-    if (combat_turn(match, memory, prism ? 100.0f : 5.0f, prism ? &target : nullptr, prism)) {
+    const auto prism_engage_distance = prism && cambc::self().is_submitting_gems() ? 4.0f : 100.0f;
+    const bool preserve_tribute = prism && prism_should_preserve_nearby_final_tribute(memory);
+    if (!preserve_tribute && combat_turn(match, memory,
+            prism ? prism_engage_distance : 5.0f, prism ? &target : nullptr, prism)) {
         if (prism) publish_combat(target);
         return true;
     }

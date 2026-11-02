@@ -166,15 +166,14 @@ float calculate_dps(const ChampionProfile& profile) {
     return strength + ability_damage;
 }
 
-// Check if champion has Capture emblem (reduces capture time to 3 rounds)
+// Check if champion has Capture emblem (caps the team's remaining capture time at 3 rounds).
 bool has_capture_emblem() {
     try {
         auto& me = cambc::self();
         const auto counts = me.item_count();
-        // Check for tribute emblem items
-        if (counts[cambc::item_type::tribute_emblem_of_strength] > 0) return true;
-        if (counts[cambc::item_type::tribute_emblem_of_focus] > 0) return true;
-        if (counts[cambc::item_type::tribute_emblem_of_health] > 0) return true;
+        if (counts[cambc::item_type::capture_emblem_of_strength] > 0) return true;
+        if (counts[cambc::item_type::capture_emblem_of_focus] > 0) return true;
+        if (counts[cambc::item_type::capture_emblem_of_health] > 0) return true;
     } catch (const cambc::error&) {
         // If we can't read items, assume no emblem
     }
