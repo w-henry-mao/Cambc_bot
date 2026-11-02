@@ -375,6 +375,8 @@ bool retreat_to_spawn(BotMemory& memory, MatchData& match, bool include_enemy_th
             memory.tribute_altar.reset();
             memory.pursuit_target.reset();
             memory.abandoned_pursuit_target.reset();
+            memory.abandoned_pursuit_last_health = 0.0f;
+            memory.abandoned_pursuit_last_seen_round = std::numeric_limits<std::uint32_t>::max();
             memory.pursuit_last_damage_round = 0;
 
         } catch (const cambc::error&) {
@@ -402,6 +404,11 @@ bool retreat_to_spawn(BotMemory& memory, MatchData& match, bool include_enemy_th
     safe_candidates |= shifted;
     safe_candidates &= ~danger_tiles;
     safe_candidates &= ~match.static_blockers;
+
+    cambc::bitboard occupied_allies;
+    cambc::bitboard occupied_enemies;
+    nav::refresh_visible_champion_tiles(occupied_allies, occupied_enemies);
+    safe_candidates &= ~(occupied_allies | occupied_enemies);
 
     cambc::bitboard roots;
     roots.set(position);
@@ -434,6 +441,8 @@ bool retreat_to_spawn(BotMemory& memory, MatchData& match, bool include_enemy_th
             memory.tribute_altar.reset();
             memory.pursuit_target.reset();
             memory.abandoned_pursuit_target.reset();
+            memory.abandoned_pursuit_last_health = 0.0f;
+            memory.abandoned_pursuit_last_seen_round = std::numeric_limits<std::uint32_t>::max();
             memory.pursuit_last_damage_round = 0;
 
         } catch (const cambc::error&) {

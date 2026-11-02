@@ -54,7 +54,7 @@ bool prism_is_alone(BotMemory& memory) {
             ? memory.prism_alone_rounds + 1 : 1;
         memory.prism_alone_last_round = round;
     }
-    return memory.prism_alone_rounds > 3;
+    return memory.prism_alone_rounds > 10;
 }
 
 void publish_combat(cambc::vec2 target) {

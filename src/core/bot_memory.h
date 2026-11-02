@@ -10,6 +10,8 @@ struct BotMemory {
     std::uint32_t spawn_arrival_round = std::numeric_limits<std::uint32_t>::max();
     std::optional<cambc::handle_champion_t> pursuit_target;
     std::optional<cambc::handle_champion_t> abandoned_pursuit_target;
+    float abandoned_pursuit_last_health = 0.0f;
+    std::uint32_t abandoned_pursuit_last_seen_round = std::numeric_limits<std::uint32_t>::max();
     std::uint32_t pursuit_last_damage_round = 0;
     std::uint32_t last_carried_gems = 0;
     std::uint32_t last_gem_increase_round = 0;

@@ -48,6 +48,11 @@ constexpr std::array<DashOption, 16> make_dash_options() {
 
 constexpr auto kDashOptions = make_dash_options();
 
+void refresh_champion_tiles_impl(cambc::bitboard& ally_tiles, cambc::bitboard& enemy_tiles) {
+    cambc::vision::champion_tiles_into(cambc::team::ally, ally_tiles);
+    cambc::vision::champion_tiles_into(cambc::team::enemy, enemy_tiles);
+}
+
 struct DashCandidate {
     int progress;
     cambc::vec2 landing;
@@ -61,8 +66,7 @@ void refresh_landing_blocked(PathScratch& scratch, cambc::vec2 position,
     landing_blocked |= cambc::map::holes();
     landing_blocked |= cambc::map::altars();
     landing_blocked |= cambc::map::spawn_region(cambc::team::enemy);
-    cambc::vision::champion_tiles_into(cambc::team::ally, scratch.ally_tiles);
-    cambc::vision::champion_tiles_into(cambc::team::enemy, scratch.enemy_tiles);
+    refresh_champion_tiles_impl(scratch.ally_tiles, scratch.enemy_tiles);
     cambc::vision::camp_tiles_into(scratch.camp_tiles);
     cambc::vision::teleport_tiles_into(scratch.teleport_tiles);
     landing_blocked |= scratch.ally_tiles;
@@ -270,8 +274,7 @@ bool move_into_radius(MovementMemory& movement, cambc::vec2 center, int radius,
     auto& scratch = movement.scratch;
     scratch.route_blocked = cambc::map::walls() | cambc::map::holes() | cambc::map::altars() |
         cambc::map::spawn_region(cambc::team::enemy);
-    cambc::vision::champion_tiles_into(cambc::team::ally, scratch.ally_tiles);
-    cambc::vision::champion_tiles_into(cambc::team::enemy, scratch.enemy_tiles);
+    refresh_champion_tiles_impl(scratch.ally_tiles, scratch.enemy_tiles);
     cambc::vision::camp_tiles_into(scratch.camp_tiles);
     cambc::vision::teleport_tiles_into(scratch.teleport_tiles);
     scratch.route_blocked |= scratch.ally_tiles;
@@ -381,5 +384,9 @@ bool move_off(MovementMemory& movement, const cambc::bitboard& forbidden_tiles) 
         }
     }
     return false;
+}
+
+void refresh_visible_champion_tiles(cambc::bitboard& ally_tiles, cambc::bitboard& enemy_tiles) {
+    refresh_champion_tiles_impl(ally_tiles, enemy_tiles);
 }
 }

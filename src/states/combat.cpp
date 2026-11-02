@@ -38,6 +38,12 @@ void clear_pursuit(BotMemory& memory) {
     memory.pursuit_last_damage_round = 0;
 }
 
+void clear_abandoned_pursuit(BotMemory& memory) {
+    memory.abandoned_pursuit_target.reset();
+    memory.abandoned_pursuit_last_health = 0.0f;
+    memory.abandoned_pursuit_last_seen_round = std::numeric_limits<std::uint32_t>::max();
+}
+
 void note_damage(BotMemory& memory, Enemy& target, std::uint32_t round) {
     try {
         const auto health = target.view.health();
@@ -84,6 +90,50 @@ std::optional<cambc::vec2> best_dash_landing(BotMemory& memory,
     return best;
 }
 
+bool is_damage_dealing_ability(cambc::ability& ability) {
+    return ability.is_damage() || ability.is_aoe_damage() ||
+        (ability.is_cc() && ability.get<cambc::ability_cc>().modifier > 0.0f) ||
+        (ability.is_dash() && ability.get<cambc::ability_dash>().modifier > 0.0f);
+}
+
+bool can_damage_target_now(Enemy& target, BotMemory& memory, const cambc::vec2& my_position) {
+    auto& me = cambc::self();
+    if (me.can_attack() && me.attack_tiles().is_set(target.position)) return true;
+    if (!me.can_cast()) return false;
+
+    auto abilities = me.abilities();
+    for (std::size_t slot = 0; slot < abilities.size(); ++slot) {
+        auto& ability = abilities[slot];
+        try {
+            if (!ability.is_ready()) continue;
+            if (!is_damage_dealing_ability(ability)) continue;
+            if (ability.is_dash() && memory.movement.cooldown > 0) continue;
+            if (ability.damage_amount() <= 0.0f) continue;
+
+            const auto targets = ability.valid_targets();
+            if (ability.is_dash()) {
+                if (!targets.contains(cambc::ability_target_mask::ground)) continue;
+            } else if (!targets.contains(cambc::ability_target_mask::enemies)) {
+                continue;
+            }
+
+            const auto valid_tiles = ability.valid_tiles();
+            if (ability.is_dash()) {
+                const auto dash = ability.get<cambc::ability_dash>();
+                if (!best_dash_landing(memory, valid_tiles, target.position,
+                                       dash.radius, my_position)) continue;
+            } else if (!valid_tiles.is_set(target.position)) {
+                continue;
+            }
+
+            if (ability.damage_amount(target.view) > 0.0f) return true;
+        } catch (const cambc::error&) {
+            continue;
+        }
+    }
+    return false;
+}
+
 void fight_target(Enemy& target, BotMemory& memory, std::uint32_t round) {
     auto& me = cambc::self();
     auto my_position = me.position();
@@ -124,10 +174,7 @@ void fight_target(Enemy& target, BotMemory& memory, std::uint32_t round) {
             auto& ability = abilities[slot];
             try {
                 if (!ability.is_ready()) continue;
-                const bool damaging = ability.is_damage() || ability.is_aoe_damage() ||
-                    (ability.is_cc() && ability.get<cambc::ability_cc>().modifier > 0.0f) ||
-                    (ability.is_dash() && ability.get<cambc::ability_dash>().modifier > 0.0f);
-                if (!damaging) continue;
+                if (!is_damage_dealing_ability(ability)) continue;
                 if (ability.is_dash() && memory.movement.cooldown > 0) continue;
                 const auto damage = ability.damage_amount();
                 if (damage <= best_damage) continue;
@@ -290,6 +337,8 @@ bool combat_turn(MatchData& match, BotMemory& memory, float engage_distance,
             if (round - memory.pursuit_last_damage_round >= kPursuitLimit) {
                 log_decision("pursuit_timeout", &*found);
                 memory.abandoned_pursuit_target = found->handle;
+                memory.abandoned_pursuit_last_health = found->health;
+                memory.abandoned_pursuit_last_seen_round = round;
                 clear_pursuit(memory);
             } else {
                 target = &*found;
@@ -297,12 +346,22 @@ bool combat_turn(MatchData& match, BotMemory& memory, float engage_distance,
         }
     }
 
-    if (!memory.pursuit_target && memory.abandoned_pursuit_target) {
+    if (memory.abandoned_pursuit_target) {
         const auto abandoned = std::find_if(enemies.begin(), enemies.end(), [&](const Enemy& enemy) {
             return enemy.handle == *memory.abandoned_pursuit_target;
         });
         if (abandoned == enemies.end()) {
-            memory.abandoned_pursuit_target.reset();
+            clear_abandoned_pursuit(memory);
+        } else if (can_damage_target_now(*abandoned, memory, my_position)) {
+            log_decision("abandoned_target_damage_option_reset", &*abandoned);
+            clear_abandoned_pursuit(memory);
+        } else if (round > 0 && memory.abandoned_pursuit_last_seen_round == round - 1 &&
+                   abandoned->health < memory.abandoned_pursuit_last_health) {
+            log_decision("abandoned_target_damaged_reset", &*abandoned);
+            clear_abandoned_pursuit(memory);
+        } else {
+            memory.abandoned_pursuit_last_health = abandoned->health;
+            memory.abandoned_pursuit_last_seen_round = round;
         }
     }
 

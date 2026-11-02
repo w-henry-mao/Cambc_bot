@@ -41,6 +41,8 @@ bool move_into_radius(MovementMemory& movement, cambc::vec2 center, int radius,
 bool move_randomly_within_radius(MovementMemory& movement, cambc::vec2 center, int radius,
                                  const cambc::bitboard& forbidden_tiles);
 bool move_off(MovementMemory& movement, const cambc::bitboard& forbidden_tiles);
+// Refresh visible ally and enemy champion occupancy masks for destination filtering.
+void refresh_visible_champion_tiles(cambc::bitboard& ally_tiles, cambc::bitboard& enemy_tiles);
 void filter_legal_dash_landings(MovementMemory& movement, cambc::vec2 start,
                                 const cambc::bitboard& in_range, cambc::bitboard& legal);
 }
