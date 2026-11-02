@@ -6,13 +6,13 @@
 #include <cambc.h>
 #include <algorithm>
 #include <cstdint>
+#include <iostream>
 #include <limits>
 #include <optional>
 #include <vector>
 
 namespace {
 constexpr std::uint32_t kPursuitLimit = 5;
-constexpr float kEngageDistance = 5.0f;
 
 struct Enemy {
     cambc::champion view;
@@ -87,8 +87,10 @@ std::optional<cambc::vec2> best_dash_landing(BotMemory& memory,
 void fight_target(Enemy& target, BotMemory& memory, std::uint32_t round) {
     auto& me = cambc::self();
     auto my_position = me.position();
+    const auto start_position = my_position;
     bool ability_used = false;
     bool moved = false;
+    bool attack_attempted = false;
 
     if (me.can_cast()) {
         auto abilities = me.abilities();
@@ -177,6 +179,7 @@ void fight_target(Enemy& target, BotMemory& memory, std::uint32_t round) {
     if (me.can_attack() && attack_tiles.is_set(target.position)) {
         try {
             me.attack(target.view);
+            attack_attempted = true;
 
             note_damage(memory, target, round);
             if (!ability_used) {
@@ -191,6 +194,7 @@ void fight_target(Enemy& target, BotMemory& memory, std::uint32_t round) {
                             const auto after_reset_tiles = me.attack_tiles();
                             if (me.can_attack() && after_reset_tiles.is_set(target.view.position())) {
                                 me.attack(target.view);
+                                attack_attempted = true;
 
                                 note_damage(memory, target, round);
                             }
@@ -204,6 +208,22 @@ void fight_target(Enemy& target, BotMemory& memory, std::uint32_t round) {
             // The target may have moved or become invalid before the attack.
         }
     }
+
+    const auto end_position = me.position();
+    float end_health = target.health;
+    try { end_health = target.view.health(); } catch (const cambc::error&) { }
+    debug_block({
+        std::cout << "COMBAT_ACTION r=" << round
+                  << " me=" << cambc::to_string(me.champion_name())
+                  << " from=" << start_position.x << ',' << start_position.y
+                  << " target=" << cambc::to_string(target.view.champion_name())
+                  << '@' << target.position.x << ',' << target.position.y
+                  << " hp=" << target.health << "->" << end_health
+                  << " ability=" << ability_used
+                  << " moved=" << moved
+                  << " to=" << end_position.x << ',' << end_position.y
+                  << " attack=" << attack_attempted << '\n';
+    });
 }
 }
 
@@ -230,15 +250,45 @@ bool combat_turn(MatchData& match, BotMemory& memory, float engage_distance,
         } catch (const cambc::error&) { }
     }
 
+    auto log_decision = [&](const char* decision, const Enemy* chosen) {
+        debug_block({
+            std::cout << "COMBAT r=" << round
+                      << " me=" << cambc::to_string(me.champion_name())
+                      << " pos=" << my_position.x << ',' << my_position.y
+                      << " engage=" << engage_distance
+                      << " visible=" << enemies.size()
+                      << " pursuit=" << memory.pursuit_target.has_value()
+                      << " pursuit_age=" << (memory.pursuit_target ? round - memory.pursuit_last_damage_round : 0)
+                      << " decision=" << decision;
+            if (chosen) {
+                std::cout << " target=" << cambc::to_string(chosen->view.champion_name())
+                          << '@' << chosen->position.x << ',' << chosen->position.y
+                          << " hp=" << chosen->health
+                          << " dist=" << chosen->position.chebyshev_distance(my_position);
+            }
+            std::cout << " enemies=";
+            for (std::size_t i = 0; i < enemies.size(); ++i) {
+                const auto& enemy = enemies[i];
+                std::cout << (i ? ";" : "") << cambc::to_string(enemy.view.champion_name())
+                          << '@' << enemy.position.x << ',' << enemy.position.y
+                          << ':' << enemy.health
+                          << ":d" << enemy.position.chebyshev_distance(my_position);
+            }
+            std::cout << '\n';
+        });
+    };
+
     Enemy* target = nullptr;
     if (memory.pursuit_target) {
         const auto found = std::find_if(enemies.begin(), enemies.end(), [&](const Enemy& enemy) {
             return enemy.handle == *memory.pursuit_target;
         });
         if (found == enemies.end() || found->health <= 0.0f) {
+            log_decision("pursuit_lost", nullptr);
             clear_pursuit(memory);
         } else {
             if (round - memory.pursuit_last_damage_round >= kPursuitLimit) {
+                log_decision("pursuit_timeout", &*found);
                 memory.abandoned_pursuit_target = found->handle;
                 clear_pursuit(memory);
             } else {
@@ -251,7 +301,7 @@ bool combat_turn(MatchData& match, BotMemory& memory, float engage_distance,
         const auto abandoned = std::find_if(enemies.begin(), enemies.end(), [&](const Enemy& enemy) {
             return enemy.handle == *memory.abandoned_pursuit_target;
         });
-        if (abandoned == enemies.end() || abandoned->position.chebyshev_distance(my_position) > kEngageDistance) {
+        if (abandoned == enemies.end()) {
             memory.abandoned_pursuit_target.reset();
         }
     }
@@ -264,6 +314,7 @@ bool combat_turn(MatchData& match, BotMemory& memory, float engage_distance,
     }
     if (target && best_nearby && best_nearby->handle != target->handle &&
         is_better_target(*best_nearby, *target, my_position)) {
+        log_decision("switch_to_better_nearby", best_nearby);
         target = best_nearby;
         memory.pursuit_target = target->handle;
         memory.pursuit_last_damage_round = round;
@@ -277,8 +328,10 @@ bool combat_turn(MatchData& match, BotMemory& memory, float engage_distance,
                     });
                     *target_position = abandoned != enemies.end() ? abandoned->position : enemies.front().position;
                 }
+                log_decision("keep_mode_visible_no_engage", nullptr);
                 return true;
             }
+            log_decision("no_target_end_combat", nullptr);
             return false;
         }
         memory.pursuit_target = target->handle;
@@ -286,13 +339,14 @@ bool combat_turn(MatchData& match, BotMemory& memory, float engage_distance,
     }
 
     if (target_position) *target_position = target->position;
+    log_decision("engage", target);
 
     if (me.is_submitting_gems()) {
         try {
             me.cancel_submit_gems();
 
         } catch (const cambc::error&) {
-
+            log_decision("cancel_submit_failed_keep_combat", target);
             return true;
         }
     }

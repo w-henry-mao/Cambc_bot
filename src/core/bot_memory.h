@@ -27,14 +27,4 @@ struct BotMemory {
     std::uint32_t prism_alone_last_round = std::numeric_limits<std::uint32_t>::max();
     std::uint32_t prism_dead_since_round = std::numeric_limits<std::uint32_t>::max();
     bool prism_regroup_active = false;
-    std::optional<cambc::vec2> prism_tether_target;
-    std::uint32_t prism_stall_rounds = 0;
-    std::uint32_t prism_stall_last_round = std::numeric_limits<std::uint32_t>::max();
-    std::optional<cambc::vec2> prism_stall_sample_position;
-    std::uint32_t prism_stall_sample_round = std::numeric_limits<std::uint32_t>::max();
-    bool prism_stall_sample_had_move_attempt = false;
-    bool prism_tether_released = false;
-    bool prism_final_tribute_tether_active = false;
-    std::uint32_t prism_release_move_rounds = 0;
-    std::uint32_t prism_release_last_move_round = std::numeric_limits<std::uint32_t>::max();
 };

@@ -14,16 +14,22 @@ void ensure_spawn_data(CachedCampGroup& group) {
     group.spawn_ready = true;
 }
 
+const cambc::bitboard& all_camp_spawn_tiles(MatchData& match) {
+    if (!match.all_camp_spawn_tiles_ready) {
+        for (auto& group : match.camp_groups) {
+            ensure_spawn_data(group);
+            match.all_camp_spawn_tiles |= group.spawn_tiles;
+        }
+        match.all_camp_spawn_tiles_ready = true;
+    }
+    return match.all_camp_spawn_tiles;
+}
+
 const cambc::bitboard& beside_tiles(MatchData& match, CachedCampGroup& group) {
     if (!match.beside_mask_ready) {
-        cambc::bitboard all_spawn_tiles;
-        for (auto& cached : match.camp_groups) {
-            ensure_spawn_data(cached);
-            all_spawn_tiles |= cached.spawn_tiles;
-        }
         match.beside_mask.fill();
         match.beside_mask &= ~match.static_blockers;
-        match.beside_mask &= ~all_spawn_tiles;
+        match.beside_mask &= ~all_camp_spawn_tiles(match);
         match.beside_mask_ready = true;
     }
 

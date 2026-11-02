@@ -495,16 +495,8 @@ bool recall_turn(MatchData& match, BotMemory& memory, bool force_recall, float a
 
 void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memory,
                std::optional<cambc::vec2> coordinated_target,
-               cambc::vec2* selected_target,
-               nav::TargetMoveStatus* movement_status) {
+               cambc::vec2* selected_target) {
     auto& me = cambc::self();
-    if (movement_status) *movement_status = {};
-    const auto move_towards_target = [&](cambc::vec2 target, bool allow_dash, bool target_is_camp) {
-        if (movement_status) movement_status->attempted = true;
-        const bool moved = nav::move_towards(memory.movement, target, allow_dash, target_is_camp);
-        if (movement_status && moved) movement_status->succeeded = true;
-        return moved;
-    };
     std::optional<decltype(me.abilities())> heart_abilities;
     bool heart_shield_can_cast = false;
 
@@ -610,14 +602,14 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
             if (distance < nearest) { nearest = distance; destination = tile; }
         }
         if (destination) {
-            move_towards_target(*destination, true, true);
+            nav::move_towards(memory.movement, *destination, true, true);
 
         }
         else {
             beside_tiles(match, group);
             if (!group.beside_tiles.is_set(position) && !group.beside_positions.empty()) {
                 const auto fallback = group.beside_positions.front();
-                move_towards_target(fallback, true, false);
+                nav::move_towards(memory.movement, fallback, true, false);
 
             }
         }
@@ -672,13 +664,13 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
                     }
                 }
                 if (destination) {
-                    move_towards_target(*destination, true, false);
+                    nav::move_towards(memory.movement, *destination, true, false);
 
                 }
             }
         } else {
             // Unknown, hidden, reward-available, or expired: keep the established fallback.
-            move_towards_target(group.centre, true, true);
+            nav::move_towards(memory.movement, group.centre, true, true);
 
         }
 
@@ -835,12 +827,12 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
         if (should_move) {
             if (!profile.is_ranged) {
                 // A failed SDK move is diagnostic; do not try lower-ranked targets.
-                position_changed = move_towards_target(
-                    preferred_target->position, attack_target == nullptr, true);
+                position_changed = nav::move_towards(
+                    memory.movement, preferred_target->position, attack_target == nullptr, true);
             } else {
                 for (const auto& candidate : candidates) {
-                    position_changed = move_towards_target(
-                        candidate.position, attack_target == nullptr, true);
+                    position_changed = nav::move_towards(
+                        memory.movement, candidate.position, attack_target == nullptr, true);
                     if (position_changed) break;
                 }
             }
@@ -892,4 +884,70 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
         }
     }
     return;
+}
+
+bool handle_cleared_coordinated_target(MatchData& match, BotMemory& memory,
+                                       cambc::vec2 target, cambc::vec2 prism_position) {
+    if (target.x < 0 || target.x >= 100 || target.y < 0 || target.y >= 100 ||
+        prism_position.x < 0 || prism_position.x >= 100 ||
+        prism_position.y < 0 || prism_position.y >= 100) return false;
+
+    const auto found = std::find_if(match.camp_groups.begin(), match.camp_groups.end(), [&](const auto& group) {
+        return group.centre == target;
+    });
+    if (found == match.camp_groups.end()) return false;
+
+    const auto round = cambc::round_number();
+    observe_respawns(match, round);
+    refresh_respawn_beliefs(match, round);
+    const bool recently_blocked = found->blocked_round != std::numeric_limits<std::uint32_t>::max() &&
+        round >= found->blocked_round &&
+        round - found->blocked_round < farm_constants::kBlockedSkipRounds;
+    const bool cleared = found->reward_waiting || found->respawn_ready_round > round || recently_blocked;
+    if (!cleared) return false;
+
+    const auto& camp_tiles = all_camp_spawn_tiles(match);
+    auto& movement = memory.movement;
+    const auto position = cambc::self().position();
+    movement.movement_guard_center.reset();
+    if (camp_tiles.is_set(position)) {
+        // Prefer one safe neighboring tile; if enclosed, search outward from ring 2.
+        if (nav::move_off(movement, camp_tiles)) return true;
+        if (!cambc::self().can_move()) return true;
+
+        const auto move_toward_first_safe_ring = [&] {
+            for (int radius = 2; radius < 100; ++radius) {
+                const auto consider = [&](cambc::vec2 tile) {
+                    if (!cambc::map::is_in_bounds(tile) || camp_tiles.is_set(tile) ||
+                        match.static_blockers.is_set(tile) ||
+                        movement.scratch.ally_tiles.is_set(tile) ||
+                        movement.scratch.enemy_tiles.is_set(tile)) return false;
+                    nav::move_towards(movement, tile, false, false);
+                    return true;
+                };
+
+                for (int offset = -radius; offset <= radius; ++offset) {
+                    if (consider({position.x + offset, position.y - radius}) ||
+                        consider({position.x + offset, position.y + radius})) return;
+                }
+                for (int offset = -radius + 1; offset < radius; ++offset) {
+                    if (consider({position.x - radius, position.y + offset}) ||
+                        consider({position.x + radius, position.y + offset})) return;
+                }
+            }
+        };
+        move_toward_first_safe_ring();
+        return true;
+    }
+
+    constexpr int kPrismTetherRadius = 3;
+    if (position.chebyshev_distance(prism_position) > kPrismTetherRadius) {
+        nav::move_into_radius(movement, prism_position, kPrismTetherRadius, true, &camp_tiles);
+        return true;
+    }
+
+    movement.movement_guard_center = prism_position;
+    movement.movement_guard_radius = kPrismTetherRadius;
+    nav::move_randomly_within_radius(movement, prism_position, kPrismTetherRadius, camp_tiles);
+    return true;
 }

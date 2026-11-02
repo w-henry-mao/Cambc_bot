@@ -1,4 +1,5 @@
 #include "pathfinding.h"
+#include "../core/rng.h"
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -52,7 +53,8 @@ struct DashCandidate {
     cambc::vec2 landing;
 };
 
-void refresh_landing_blocked(PathScratch& scratch, cambc::vec2 position) {
+void refresh_landing_blocked(PathScratch& scratch, cambc::vec2 position,
+                             const cambc::bitboard* additional_forbidden_tiles = nullptr) {
     auto& landing_blocked = scratch.landing_blocked;
     landing_blocked.clear();
     landing_blocked |= cambc::map::walls();
@@ -67,6 +69,7 @@ void refresh_landing_blocked(PathScratch& scratch, cambc::vec2 position) {
     landing_blocked |= scratch.enemy_tiles;
     landing_blocked |= scratch.camp_tiles;
     landing_blocked |= scratch.teleport_tiles;
+    if (additional_forbidden_tiles) landing_blocked |= *additional_forbidden_tiles;
     landing_blocked.set(position, false);
 }
 
@@ -108,13 +111,14 @@ void filter_legal_dash_landings(MovementMemory& movement, cambc::vec2 start,
 }
 
 namespace {
-bool walk_towards(MovementMemory& movement, cambc::vec2 target) {
+bool walk_towards(MovementMemory& movement, cambc::vec2 target,
+                  const cambc::bitboard* additional_forbidden_tiles = nullptr) {
     auto& me = cambc::self();
     if (!me.can_move()) return false;
-    if (movement.movement_guard_center) {
+    if (movement.movement_guard_center || additional_forbidden_tiles) {
         const auto position = me.position();
         auto& scratch = movement.scratch;
-        refresh_landing_blocked(scratch, position);
+        refresh_landing_blocked(scratch, position, additional_forbidden_tiles);
         scratch.route_blocked = scratch.landing_blocked;
         scratch.route_blocked.set(target, false);
         scratch.goals.clear();
@@ -122,8 +126,10 @@ bool walk_towards(MovementMemory& movement, cambc::vec2 target) {
         scratch.visited.clear();
         scratch.goal_field.compute(scratch.route_blocked, scratch.goals, scratch.visited);
         const auto step = scratch.goal_field.next_move_from(position);
-        if (!step || (position + *step).chebyshev_distance(*movement.movement_guard_center) >
-                         static_cast<std::uint32_t>(movement.movement_guard_radius)) return false;
+        if (!step) return false;
+        if (movement.movement_guard_center &&
+            (position + *step).chebyshev_distance(*movement.movement_guard_center) >
+                static_cast<std::uint32_t>(movement.movement_guard_radius)) return false;
         try {
             me.move(*step);
             return true;
@@ -140,7 +146,7 @@ bool walk_towards(MovementMemory& movement, cambc::vec2 target) {
 }
 
 bool move_towards(MovementMemory& movement, cambc::vec2 target, bool allow_dash,
-                  bool target_is_camp) {
+                  bool target_is_camp, const cambc::bitboard* additional_forbidden_tiles) {
     auto& me = cambc::self();
     if (!me.can_move()) {
         return false;
@@ -150,10 +156,11 @@ bool move_towards(MovementMemory& movement, cambc::vec2 target, bool allow_dash,
     if (!cambc::map::is_in_bounds(target)) {
         return false;
     }
+    if (additional_forbidden_tiles && additional_forbidden_tiles->is_set(target)) return false;
     const auto direct_distance = position.chebyshev_distance(target);
     if (movement.is_heart_of_ruin && target_is_camp &&
         direct_distance < kHeartOfRuinMinCampDistance) {
-        const bool moved = walk_towards(movement, target);
+        const bool moved = walk_towards(movement, target, additional_forbidden_tiles);
         return moved;
     }
 
@@ -167,13 +174,13 @@ bool move_towards(MovementMemory& movement, cambc::vec2 target, bool allow_dash,
         }
     }
     if (!can_dash) {
-        const bool moved = walk_towards(movement, target);
+        const bool moved = walk_towards(movement, target, additional_forbidden_tiles);
         return moved;
     }
 
     auto& scratch = movement.scratch;
     auto& landing_blocked = scratch.landing_blocked;
-    refresh_landing_blocked(scratch, position);
+    refresh_landing_blocked(scratch, position, additional_forbidden_tiles);
     auto& route_blocked = scratch.route_blocked;
     route_blocked = landing_blocked;
     auto& goals = scratch.goals;
@@ -186,14 +193,14 @@ bool move_towards(MovementMemory& movement, cambc::vec2 target, bool allow_dash,
     goal_field.compute(route_blocked, goals, scratch.visited);
     const int distance = goal_field.get(position);
     if (distance == cambc::distance_field::unreachable) {
-        const bool moved = walk_towards(movement, target);
+        const bool moved = walk_towards(movement, target, additional_forbidden_tiles);
         return moved;
     }
 
     const int minimum_distance = movement.is_heart_of_ruin && target_is_camp
         ? kHeartOfRuinMinCampDistance : kDashMinProgress;
     if (distance < minimum_distance) {
-        const bool moved = walk_towards(movement, target);
+        const bool moved = walk_towards(movement, target, additional_forbidden_tiles);
         return moved;
     }
 
@@ -237,7 +244,7 @@ bool move_towards(MovementMemory& movement, cambc::vec2 target, bool allow_dash,
         }
     }
     if (!dashed) {
-        const bool moved = walk_towards(movement, target);
+        const bool moved = walk_towards(movement, target, additional_forbidden_tiles);
         return moved;
     }
 
@@ -253,7 +260,8 @@ bool move_towards(MovementMemory& movement, cambc::vec2 target, bool allow_dash,
 }
 
 bool move_into_radius(MovementMemory& movement, cambc::vec2 center, int radius,
-                      bool fallback_to_closest) {
+                      bool fallback_to_closest,
+                      const cambc::bitboard* additional_forbidden_tiles) {
     auto& me = cambc::self();
     const auto position = me.position();
     if (!me.can_move()) return false;
@@ -270,6 +278,7 @@ bool move_into_radius(MovementMemory& movement, cambc::vec2 center, int radius,
     scratch.route_blocked |= scratch.enemy_tiles;
     scratch.route_blocked |= scratch.camp_tiles;
     scratch.route_blocked |= scratch.teleport_tiles;
+    if (additional_forbidden_tiles) scratch.route_blocked |= *additional_forbidden_tiles;
     scratch.route_blocked.set(position, false);
 
     scratch.goals.clear();
@@ -317,19 +326,39 @@ bool move_into_radius(MovementMemory& movement, cambc::vec2 center, int radius,
         }
     }
     if (!destination) return false;
-    return move_towards(movement, *destination, true, false);
+    return move_towards(movement, *destination, true, false, additional_forbidden_tiles);
 }
 
-bool enter_tethered_radius(MovementMemory& movement, cambc::vec2 center, int radius) {
-    movement.movement_guard_center.reset();
-    const auto position = cambc::self().position();
-    if (position.chebyshev_distance(center) > static_cast<std::uint32_t>(radius)) {
-        move_into_radius(movement, center, radius, true);
-        return false;
+bool move_randomly_within_radius(MovementMemory& movement, cambc::vec2 center, int radius,
+                                 const cambc::bitboard& forbidden_tiles) {
+    auto& me = cambc::self();
+    if (!me.can_move()) return false;
+    const auto position = me.position();
+    auto& scratch = movement.scratch;
+    refresh_landing_blocked(scratch, position, &forbidden_tiles);
+
+    std::array<cambc::vec2, 8> destinations{};
+    std::size_t count = 0;
+    for (int dx = -1; dx <= 1; ++dx) {
+        for (int dy = -1; dy <= 1; ++dy) {
+            if (dx == 0 && dy == 0) continue;
+            const cambc::vec2 destination{position.x + dx, position.y + dy};
+            if (!cambc::map::is_in_bounds(destination) ||
+                destination.chebyshev_distance(center) > static_cast<std::uint32_t>(radius) ||
+                scratch.landing_blocked.is_set(destination)) continue;
+            destinations[count++] = destination;
+        }
     }
-    movement.movement_guard_center = center;
-    movement.movement_guard_radius = radius;
-    return true;
+    if (count == 0) return false;
+
+    const auto first = random_number(static_cast<unsigned>(count));
+    for (std::size_t i = 0; i < count; ++i) {
+        const auto destination = destinations[(first + i) % count];
+        try {
+            if (me.move({destination.x - position.x, destination.y - position.y})) return true;
+        } catch (const cambc::error&) { }
+    }
+    return false;
 }
 
 bool move_off(MovementMemory& movement, const cambc::bitboard& forbidden_tiles) {

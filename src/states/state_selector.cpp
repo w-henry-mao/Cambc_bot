@@ -6,7 +6,6 @@
 #include "../core/team_strategy.h"
 #include "../nav/pathfinding.h"
 #include <cambc.h>
-#include <limits>
 
 namespace {
 
@@ -62,101 +61,10 @@ void publish_combat(cambc::vec2 target) {
     team_strategy::publish(team_strategy::Mode::combat, cambc::self().position(), target);
 }
 
-void reset_prism_tether_recovery(BotMemory& memory) {
-    memory.prism_tether_target.reset();
-    memory.prism_stall_rounds = 0;
-    memory.prism_stall_last_round = std::numeric_limits<std::uint32_t>::max();
-    memory.prism_stall_sample_position.reset();
-    memory.prism_stall_sample_round = std::numeric_limits<std::uint32_t>::max();
-    memory.prism_stall_sample_had_move_attempt = false;
-    memory.prism_tether_released = false;
-    memory.prism_release_move_rounds = 0;
-    memory.prism_release_last_move_round = std::numeric_limits<std::uint32_t>::max();
-}
-
-void update_prism_tether_recovery(BotMemory& memory, cambc::vec2 target,
-                                  const nav::TargetMoveStatus& movement, std::uint32_t round) {
-    if (!team_strategy::valid_position(target)) {
-        reset_prism_tether_recovery(memory);
-        return;
-    }
-    if (!memory.prism_tether_target || *memory.prism_tether_target != target) {
-        reset_prism_tether_recovery(memory);
-        memory.prism_tether_target = target;
-        memory.prism_stall_sample_position = cambc::self().position();
-        memory.prism_stall_sample_round = round;
-    }
-
-    if (memory.prism_tether_released) {
-        if (movement.attempted && movement.succeeded) {
-            memory.prism_release_move_rounds =
-                memory.prism_release_last_move_round != std::numeric_limits<std::uint32_t>::max() &&
-                memory.prism_release_last_move_round + 1 == round
-                    ? memory.prism_release_move_rounds + 1 : 1;
-            memory.prism_release_last_move_round = round;
-            if (memory.prism_release_move_rounds >= 3) {
-                memory.prism_tether_released = false;
-                memory.prism_stall_rounds = 0;
-                memory.prism_stall_last_round = std::numeric_limits<std::uint32_t>::max();
-                memory.prism_stall_sample_position = cambc::self().position();
-                memory.prism_stall_sample_round = round;
-                memory.prism_stall_sample_had_move_attempt = false;
-                memory.prism_release_move_rounds = 0;
-                memory.prism_release_last_move_round = std::numeric_limits<std::uint32_t>::max();
-            }
-        } else {
-            memory.prism_release_move_rounds = 0;
-            memory.prism_release_last_move_round = std::numeric_limits<std::uint32_t>::max();
-        }
-        return;
-    }
-
-    if (movement.attempted) memory.prism_stall_sample_had_move_attempt = true;
-    constexpr std::uint32_t kStallSampleInterval = 5;
-    if (memory.prism_stall_sample_position &&
-        round - memory.prism_stall_sample_round >= kStallSampleInterval) {
-        const auto position = cambc::self().position();
-        const bool stayed_near_anchor = position.chebyshev_distance(
-            *memory.prism_stall_sample_position) <= 1;
-        if (memory.prism_stall_sample_had_move_attempt && stayed_near_anchor) {
-            memory.prism_tether_released = true;
-            memory.prism_stall_rounds = 0;
-            memory.prism_stall_last_round = std::numeric_limits<std::uint32_t>::max();
-            memory.prism_release_move_rounds = 0;
-            memory.prism_release_last_move_round = std::numeric_limits<std::uint32_t>::max();
-            return;
-        }
-
-        memory.prism_stall_sample_position = position;
-        memory.prism_stall_sample_round = round;
-        memory.prism_stall_sample_had_move_attempt = false;
-    }
-
-    if (movement.attempted && !movement.succeeded) {
-        memory.prism_stall_rounds =
-            memory.prism_stall_last_round != std::numeric_limits<std::uint32_t>::max() &&
-            memory.prism_stall_last_round + 1 == round
-                ? memory.prism_stall_rounds + 1 : 1;
-        memory.prism_stall_last_round = round;
-        if (memory.prism_stall_rounds >= 3) {
-            memory.prism_tether_released = true;
-            memory.prism_release_move_rounds = 0;
-            memory.prism_release_last_move_round = std::numeric_limits<std::uint32_t>::max();
-        }
-    } else {
-        memory.prism_stall_rounds = 0;
-        memory.prism_stall_last_round = std::numeric_limits<std::uint32_t>::max();
-    }
-}
-
-bool final_tribute_turn_flow(const ChampionProfile& profile, MatchData& match, BotMemory& memory,
-                             bool prism) {
+bool final_tribute_turn_flow(MatchData& match, BotMemory& memory, bool prism) {
     cambc::vec2 target{127, 127};
     if (combat_turn(match, memory, prism ? 100.0f : 5.0f, prism ? &target : nullptr, prism)) {
-        if (prism) {
-            reset_prism_tether_recovery(memory);
-            publish_combat(target);
-        }
+        if (prism) publish_combat(target);
         return true;
     }
 
@@ -179,38 +87,28 @@ bool final_tribute_turn_flow(const ChampionProfile& profile, MatchData& match, B
     }
     if (memory.recall_channel_started) {
         if (prism) {
-            reset_prism_tether_recovery(memory);
             publish_prism_recall();
         }
         pause_final_tribute_for_recall(memory);
     }
     if (recall_handled) {
-        if (prism) reset_prism_tether_recovery(memory);
         if (prism && force_recall && !memory.recall_channel_started &&
             !cambc::map::spawn_region(cambc::team::ally).is_set(cambc::self().position()))
             publish_prism_recall();
         return true;
     }
-    nav::TargetMoveStatus movement;
     cambc::vec2 tribute_target{127, 127};
-    if (final_tribute_turn(memory, prism ? &movement : nullptr, prism ? &tribute_target : nullptr)) {
-        if (prism) {
-            update_prism_tether_recovery(memory, tribute_target, movement, cambc::round_number());
-            const auto mode = memory.prism_tether_released
-                ? team_strategy::Mode::tether_released : team_strategy::Mode::farming;
-            team_strategy::publish(mode, cambc::self().position(), tribute_target);
-        }
+    if (final_tribute_turn(memory, prism ? &tribute_target : nullptr)) {
+        if (prism)
+            team_strategy::publish(team_strategy::Mode::farming,
+                                   cambc::self().position(), tribute_target);
         return true;
     }
-    (void)profile;
     return false;
 }
 
 bool handle_prism(const ChampionProfile& profile, MatchData& match, BotMemory& memory) {
     const auto command = team_strategy::read();
-    if (command.mode != team_strategy::Mode::farming &&
-        command.mode != team_strategy::Mode::tether_released)
-        reset_prism_tether_recovery(memory);
     const auto required_acks = team_strategy::required_recall_ack_mask();
     if (!final_tribute_active() && command.mode == team_strategy::Mode::arrived &&
         (team_strategy::recall_ack_mask() & required_acks) != required_acks) {
@@ -220,38 +118,30 @@ bool handle_prism(const ChampionProfile& profile, MatchData& match, BotMemory& m
 
     constexpr float kPrismVisionDistance = 8.0f;
     if (recall_turn(match, memory, false, kPrismVisionDistance)) {
-        reset_prism_tether_recovery(memory);
         publish_prism_recall();
         return true;
     }
 
     cambc::vec2 enemy_position{127, 127};
     if (combat_turn(match, memory, 100.0f, &enemy_position, true)) {
-        reset_prism_tether_recovery(memory);
         publish_combat(enemy_position);
         return true;
     }
 
     if (prism_is_alone(memory) &&
         recall_turn(match, memory, true, kPrismVisionDistance)) {
-        reset_prism_tether_recovery(memory);
         publish_prism_recall();
         return true;
     }
 
     cambc::vec2 camp_target{127, 127};
-    nav::TargetMoveStatus movement;
-    farm_turn(profile, match, memory, std::nullopt, &camp_target, &movement);
-    const auto round = cambc::round_number();
-    update_prism_tether_recovery(memory, camp_target, movement, round);
-    const auto mode = memory.prism_tether_released
-        ? team_strategy::Mode::tether_released : team_strategy::Mode::farming;
-    team_strategy::publish(mode, cambc::self().position(), camp_target);
+    farm_turn(profile, match, memory, std::nullopt, &camp_target);
+    team_strategy::publish(team_strategy::Mode::farming, cambc::self().position(), camp_target);
     return true;
 }
 
 bool handle_teammate(const ChampionProfile& profile, MatchData& match, BotMemory& memory) {
-    // A teammate's own low-health or shop recall may leave the Prism tether.
+    // A teammate's own low-health or shop recall may temporarily move it away from Prism.
     if (recall_turn(match, memory)) return true;
     if (combat_turn(match, memory)) return true;
 
@@ -263,7 +153,7 @@ bool handle_teammate(const ChampionProfile& profile, MatchData& match, BotMemory
             return true;
         case team_strategy::Mode::recalling:
         case team_strategy::Mode::recalling_home:
-            nav::move_into_radius(memory.movement, command.prism_position, 2);
+            recall_turn(match, memory, true);
             return true;
         case team_strategy::Mode::arrived:
             if (cambc::self().health() >= cambc::self().max_health() &&
@@ -273,13 +163,12 @@ bool handle_teammate(const ChampionProfile& profile, MatchData& match, BotMemory
             if (recall_turn(match, memory, true)) return true;
             return true;
         case team_strategy::Mode::farming:
-        case team_strategy::Mode::tether_released:
+        case team_strategy::Mode::legacy_tether_released:
             if (!team_strategy::valid_position(command.target_position)) return true;
-            if (command.mode == team_strategy::Mode::farming) {
-                if (!nav::enter_tethered_radius(memory.movement, command.prism_position, 3)) return true;
-            }
-            farm_turn(profile, match, memory, command.target_position);
+            if (!final_tribute_active() && handle_cleared_coordinated_target(
+                    match, memory, command.target_position, command.prism_position)) return true;
             memory.movement.movement_guard_center.reset();
+            farm_turn(profile, match, memory, command.target_position);
             return true;
         case team_strategy::Mode::independent:
             farm_turn(profile, match, memory);
@@ -306,13 +195,9 @@ void run_state_selector(const ChampionProfile& profile, MatchData& match, BotMem
     update_tribute_progress(memory);
     const bool prism = is_prism();
     const bool in_final_tribute = final_tribute_active();
-    if (prism && memory.prism_final_tribute_tether_active != in_final_tribute) {
-        reset_prism_tether_recovery(memory);
-        memory.prism_final_tribute_tether_active = in_final_tribute;
-    }
 
     if (in_final_tribute) {
-        if (final_tribute_turn_flow(profile, match, memory, prism)) return;
+        if (final_tribute_turn_flow(match, memory, prism)) return;
     }
 
     if (prism) handle_prism(profile, match, memory);

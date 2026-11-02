@@ -73,7 +73,7 @@ enum class Mode : std::uint8_t {
     recalling_home = 4,
     arrived = 5,
     prism_dead = 6,
-    tether_released = 7,
+    legacy_tether_released = 7, // Old shared-memory value; handle it as farming.
 };
 
 struct Command {

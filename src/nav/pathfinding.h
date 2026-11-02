@@ -30,19 +30,16 @@ struct MovementMemory {
     PathScratch scratch;
 };
 
-struct TargetMoveStatus {
-    bool attempted = false;
-    bool succeeded = false;
-};
-
 // Route all farm movement here. Uses a dash when it improves travel, otherwise walks.
 // A forbidden mask constrains both walking and dash landing tiles.
 bool move_towards(MovementMemory& movement, cambc::vec2 target, bool allow_dash = true,
-                  bool target_is_camp = false);
+                  bool target_is_camp = false,
+                  const cambc::bitboard* additional_forbidden_tiles = nullptr);
 bool move_into_radius(MovementMemory& movement, cambc::vec2 center, int radius,
-                      bool fallback_to_closest = false);
-// Regroup into the radius, or constrain this turn's movement to remain inside it.
-bool enter_tethered_radius(MovementMemory& movement, cambc::vec2 center, int radius);
+                      bool fallback_to_closest = false,
+                      const cambc::bitboard* additional_forbidden_tiles = nullptr);
+bool move_randomly_within_radius(MovementMemory& movement, cambc::vec2 center, int radius,
+                                 const cambc::bitboard& forbidden_tiles);
 bool move_off(MovementMemory& movement, const cambc::bitboard& forbidden_tiles);
 void filter_legal_dash_landings(MovementMemory& movement, cambc::vec2 start,
                                 const cambc::bitboard& in_range, cambc::bitboard& legal);
