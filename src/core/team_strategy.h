@@ -73,7 +73,7 @@ enum class Mode : std::uint8_t {
     recalling_home = 4,
     arrived = 5,
     prism_dead = 6,
-    farming_unleashed = 7,
+    tether_released = 7,
 };
 
 struct Command {

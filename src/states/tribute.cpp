@@ -334,7 +334,10 @@ void pause_final_tribute_for_recall(BotMemory& memory) {
     set_final_tribute_mode(FinalTributeMode::inactive);
 }
 
-bool final_tribute_turn(BotMemory& memory) {
+bool final_tribute_turn(BotMemory& memory, nav::TargetMoveStatus* movement_status,
+                        cambc::vec2* selected_target) {
+    if (movement_status) *movement_status = {};
+    if (selected_target) *selected_target = {127, 127};
     auto mode = final_tribute_mode();
     if (mode == FinalTributeMode::inactive) return false;
     if (memory.final_tribute_slot >= kMaxTeamSize) return true;
@@ -352,6 +355,7 @@ bool final_tribute_turn(BotMemory& memory) {
         static_cast<std::int32_t>(read_altar_coordinate(kAltarXOffset)),
         static_cast<std::int32_t>(read_altar_coordinate(kAltarYOffset))
     };
+    if (selected_target) *selected_target = altar;
     auto& me = cambc::self();
     if (me.champion_name() == cambc::champion_type::prism) {
         if (me.is_submitting_gems()) return true;
@@ -360,7 +364,9 @@ bool final_tribute_turn(BotMemory& memory) {
                 me.submit_gems(altar);
             } catch (const cambc::error&) { }
         } else if (me.position().chebyshev_distance(altar) > 1) {
-            nav::move_towards(memory.movement, altar, true, false);
+            if (movement_status) movement_status->attempted = true;
+            const bool moved = nav::move_towards(memory.movement, altar, true, false);
+            if (movement_status && moved) movement_status->succeeded = true;
         }
         return true;
     }
@@ -372,15 +378,9 @@ bool final_tribute_turn(BotMemory& memory) {
     }
 
     const auto command = team_strategy::read();
-    if (team_strategy::valid_position(command.prism_position)) {
-        const auto position = me.position();
-        if (position.chebyshev_distance(command.prism_position) > 3) {
-            nav::move_into_radius(memory.movement, command.prism_position, 3, true);
-            return true;
-        }
-        memory.movement.movement_guard_center = command.prism_position;
-        memory.movement.movement_guard_radius = 3;
-        if (command.prism_position.chebyshev_distance(altar) > 1) return true;
+    if (team_strategy::valid_position(command.prism_position) &&
+        command.mode != team_strategy::Mode::tether_released) {
+        if (!nav::enter_tethered_radius(memory.movement, command.prism_position, 3)) return true;
     }
     return guard_altar(memory, altar);
 }

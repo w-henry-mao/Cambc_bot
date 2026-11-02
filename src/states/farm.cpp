@@ -496,7 +496,7 @@ bool recall_turn(MatchData& match, BotMemory& memory, bool force_recall, float a
 void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memory,
                std::optional<cambc::vec2> coordinated_target,
                cambc::vec2* selected_target,
-               FarmMovementStatus* movement_status) {
+               nav::TargetMoveStatus* movement_status) {
     auto& me = cambc::self();
     if (movement_status) *movement_status = {};
     const auto move_towards_target = [&](cambc::vec2 target, bool allow_dash, bool target_is_camp) {

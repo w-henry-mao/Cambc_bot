@@ -320,6 +320,18 @@ bool move_into_radius(MovementMemory& movement, cambc::vec2 center, int radius,
     return move_towards(movement, *destination, true, false);
 }
 
+bool enter_tethered_radius(MovementMemory& movement, cambc::vec2 center, int radius) {
+    movement.movement_guard_center.reset();
+    const auto position = cambc::self().position();
+    if (position.chebyshev_distance(center) > static_cast<std::uint32_t>(radius)) {
+        move_into_radius(movement, center, radius, true);
+        return false;
+    }
+    movement.movement_guard_center = center;
+    movement.movement_guard_radius = radius;
+    return true;
+}
+
 bool move_off(MovementMemory& movement, const cambc::bitboard& forbidden_tiles) {
     auto& me = cambc::self();
     if (!me.can_move()) return false;
