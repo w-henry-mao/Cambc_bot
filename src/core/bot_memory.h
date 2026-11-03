@@ -27,6 +27,8 @@ struct BotMemory {
     std::uint32_t final_tribute_resume_round = 0;
     std::uint32_t prism_final_tribute_turns_remaining = 0;
     std::uint32_t prism_final_tribute_last_channel_round = std::numeric_limits<std::uint32_t>::max();
+    std::uint32_t prism_tribute_emblem_checked_round = std::numeric_limits<std::uint32_t>::max();
+    bool prism_has_tribute_emblem = false;
     std::uint32_t prism_alone_rounds = 0;
     std::uint32_t prism_alone_last_round = std::numeric_limits<std::uint32_t>::max();
     std::uint32_t prism_dead_since_round = std::numeric_limits<std::uint32_t>::max();

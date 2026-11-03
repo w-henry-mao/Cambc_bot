@@ -4,6 +4,7 @@
 #include "../nav/pathfinding.h"
 #include "../init/deferred_setup.h"
 #include "../constants/farm_constants.h"
+#include "tribute.h"
 #include <cambc.h>
 #include <algorithm>
 #include <cmath>
@@ -470,7 +471,8 @@ bool recall_turn(MatchData& match, BotMemory& memory, bool force_recall, float a
         } catch (const cambc::error&) { }
     }
 
-    const bool shop_recall = !active_fight && !at_spawn && me.gold_count() >= 300;
+    const bool shop_recall = !final_tribute_active() && !active_fight && !at_spawn &&
+        me.gold_count() >= 300;
 
     if (force_recall && at_spawn && me.is_submitting_gems()) {
         try { me.cancel_submit_gems(); } catch (const cambc::error&) { }

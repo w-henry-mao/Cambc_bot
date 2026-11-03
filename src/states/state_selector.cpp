@@ -61,11 +61,11 @@ void publish_combat(cambc::vec2 target) {
     team_strategy::publish(team_strategy::Mode::combat, cambc::self().position(), target);
 }
 
-bool prism_should_preserve_nearby_final_tribute(const BotMemory& memory) {
+bool prism_should_preserve_nearby_final_tribute(BotMemory& memory) {
     const auto me = cambc::self();
-    if (!final_tribute_active() || me.health() < me.max_health() * 0.70f) return false;
+    if (!final_tribute_active() || me.health() <= me.max_health() * 0.60f) return false;
     const auto turns_remaining = prism_final_tribute_turns_to_completion(memory);
-    return turns_remaining && *turns_remaining <= 15;
+    return turns_remaining && *turns_remaining <= 23;
 }
 
 bool final_tribute_turn_flow(MatchData& match, BotMemory& memory, bool prism) {
