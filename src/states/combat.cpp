@@ -338,6 +338,10 @@ bool combat_turn(MatchData& match, BotMemory& memory, float engage_distance,
         if (!target) {
             if (best_spawn_suppressed) {
                 clear_pursuit(memory);
+                if (me.is_submitting_gems()) {
+                    try { me.cancel_submit_gems(); }
+                    catch (const cambc::error&) { return true; }
+                }
                 retreat_toward_own_spawn(match, memory, my_position, target_position);
                 return true;
             }

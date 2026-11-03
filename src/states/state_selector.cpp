@@ -98,6 +98,10 @@ bool final_tribute_turn_flow(MatchData& match, BotMemory& memory, bool prism) {
             const auto command = team_strategy::read();
             if (command.mode == team_strategy::Mode::combat &&
                 team_strategy::valid_position(command.target_position)) {
+                if (cambc::self().is_submitting_gems()) {
+                    try { cambc::self().cancel_submit_gems(); }
+                    catch (const cambc::error&) { return true; }
+                }
                 nav::move_towards(memory.movement, command.target_position, true, false);
                 return true;
             }

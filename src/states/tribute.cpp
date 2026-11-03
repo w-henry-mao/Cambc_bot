@@ -236,14 +236,47 @@ cambc::bitboard escort_blockers(const cambc::vec2& position) {
 
 bool guard_altar(BotMemory& memory, cambc::vec2 altar) {
     auto& me = cambc::self();
+    const auto position = me.position();
+    if (me.is_submitting_gems()) return true;
+
     cambc::bitboard guard_tiles;
     guard_tiles.draw_chebyshev(altar, 2.0f);
     cambc::bitboard blocked = escort_blockers(me.position());
     guard_tiles &= ~blocked;
     if (guard_tiles.is_empty()) return true;
 
-    const auto position = me.position();
-    if (guard_tiles.is_set(position)) {
+    const auto distance_to_altar = position.chebyshev_distance(altar);
+    const bool in_guard_zone = guard_tiles.is_set(position);
+    const auto carried_gems = in_guard_zone ? me.gem_count() : 0;
+    if (carried_gems > 0 && distance_to_altar <= 1) {
+        try { me.submit_gems(altar); } catch (const cambc::error&) { }
+        return true;
+    }
+
+    if (in_guard_zone) {
+        if (carried_gems > 0 && distance_to_altar <= 2) {
+            cambc::bitboard tribute_tiles;
+            tribute_tiles.draw_chebyshev(altar, 1.0f);
+            tribute_tiles &= ~blocked;
+            if (!tribute_tiles.is_empty()) {
+                cambc::bitboard roots;
+                roots.set(position);
+                cambc::bitboard visited;
+                cambc::distance_field field;
+                field.compute(blocked, roots, visited);
+                std::optional<cambc::vec2> destination;
+                std::uint16_t nearest = cambc::distance_field::unreachable;
+                for (const auto tile : tribute_tiles.positions()) {
+                    const auto distance = field.get(tile);
+                    if (distance < nearest) {
+                        nearest = distance;
+                        destination = tile;
+                    }
+                }
+                if (destination) nav::move_towards(memory.movement, *destination, true, false);
+                return true;
+            }
+        }
         if (!me.can_move()) return true;
         std::vector<cambc::vec2> moves;
         for (int dx = -1; dx <= 1; ++dx) {
@@ -432,12 +465,6 @@ bool final_tribute_turn(BotMemory& memory, cambc::vec2* selected_target) {
             nav::move_towards(memory.movement, altar, true, false);
         }
         return true;
-    }
-
-    if (me.is_submitting_gems()) {
-        try {
-            me.cancel_submit_gems();
-        } catch (const cambc::error&) { }
     }
 
     memory.movement.movement_guard_center.reset();
