@@ -46,6 +46,11 @@ struct MatchData {
     cambc::bitboard enemy_spawn_avoidance_zone;
     std::vector<cambc::vec2> ally_spawn_positions;
     cambc::bitboard static_blockers;               // walls, holes, altars, enemy spawn
+    cambc::distance_field bush_distance;
+    bool bush_distance_ready = false;
+    std::optional<cambc::vec2> final_tribute_altar_ring_cache_altar;
+    cambc::bitboard final_tribute_altar_ring_cache;
+    std::vector<std::size_t> final_tribute_altar_ring_camp_groups;
     cambc::bitboard beside_mask;                   // not a spawn tile of any group, not a static blocker
     bool beside_mask_ready = false;
     bool map_snapshot_ready = false;

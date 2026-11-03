@@ -122,7 +122,8 @@ void filter_legal_dash_landings(MovementMemory& movement, cambc::vec2 start,
 
 namespace {
 bool walk_towards(MovementMemory& movement, cambc::vec2 target,
-                  const cambc::bitboard* additional_forbidden_tiles = nullptr) {
+                  const cambc::bitboard* additional_forbidden_tiles = nullptr,
+                  bool* failed_after_bush_reveal = nullptr) {
     auto& me = cambc::self();
     if (!me.can_move()) return false;
     if (movement.movement_guard_center || additional_forbidden_tiles) {
@@ -150,8 +151,10 @@ bool walk_towards(MovementMemory& movement, cambc::vec2 target,
     try {
         const auto visible_before_move = cambc::vision::visible_tiles();
         if (me.move_towards(target)) return true;
-        if (me.can_move() && newly_revealed_bush_tile(visible_before_move))
+        if (me.can_move() && newly_revealed_bush_tile(visible_before_move)) {
+            if (failed_after_bush_reveal) *failed_after_bush_reveal = true;
             return me.move_towards(target);
+        }
         return false;
     } catch (const cambc::error&) {
         return false;
@@ -160,7 +163,9 @@ bool walk_towards(MovementMemory& movement, cambc::vec2 target,
 }
 
 bool move_towards(MovementMemory& movement, cambc::vec2 target, bool allow_dash,
-                  bool target_is_camp, const cambc::bitboard* additional_forbidden_tiles) {
+                  bool target_is_camp, const cambc::bitboard* additional_forbidden_tiles,
+                  bool* failed_after_bush_reveal) {
+    if (failed_after_bush_reveal) *failed_after_bush_reveal = false;
     auto& me = cambc::self();
     if (!me.can_move()) {
         return false;
@@ -174,7 +179,7 @@ bool move_towards(MovementMemory& movement, cambc::vec2 target, bool allow_dash,
     const auto direct_distance = position.chebyshev_distance(target);
     if (movement.is_heart_of_ruin && target_is_camp &&
         direct_distance < kHeartOfRuinMinCampDistance) {
-        const bool moved = walk_towards(movement, target, additional_forbidden_tiles);
+        const bool moved = walk_towards(movement, target, additional_forbidden_tiles, failed_after_bush_reveal);
         return moved;
     }
 
@@ -188,7 +193,7 @@ bool move_towards(MovementMemory& movement, cambc::vec2 target, bool allow_dash,
         }
     }
     if (!can_dash) {
-        const bool moved = walk_towards(movement, target, additional_forbidden_tiles);
+        const bool moved = walk_towards(movement, target, additional_forbidden_tiles, failed_after_bush_reveal);
         return moved;
     }
 
@@ -207,14 +212,14 @@ bool move_towards(MovementMemory& movement, cambc::vec2 target, bool allow_dash,
     goal_field.compute(route_blocked, goals, scratch.visited);
     const int distance = goal_field.get(position);
     if (distance == cambc::distance_field::unreachable) {
-        const bool moved = walk_towards(movement, target, additional_forbidden_tiles);
+        const bool moved = walk_towards(movement, target, additional_forbidden_tiles, failed_after_bush_reveal);
         return moved;
     }
 
     const int minimum_distance = movement.is_heart_of_ruin && target_is_camp
         ? kHeartOfRuinMinCampDistance : kDashMinProgress;
     if (distance < minimum_distance) {
-        const bool moved = walk_towards(movement, target, additional_forbidden_tiles);
+        const bool moved = walk_towards(movement, target, additional_forbidden_tiles, failed_after_bush_reveal);
         return moved;
     }
 
@@ -258,7 +263,7 @@ bool move_towards(MovementMemory& movement, cambc::vec2 target, bool allow_dash,
         }
     }
     if (!dashed) {
-        const bool moved = walk_towards(movement, target, additional_forbidden_tiles);
+        const bool moved = walk_towards(movement, target, additional_forbidden_tiles, failed_after_bush_reveal);
         return moved;
     }
 

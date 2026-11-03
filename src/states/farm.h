@@ -8,6 +8,8 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
                cambc::vec2* selected_target = nullptr);
 bool handle_cleared_coordinated_target(MatchData& match, BotMemory& memory,
                                        cambc::vec2 target, cambc::vec2 prism_position);
-bool retreat_to_spawn(BotMemory& memory, MatchData& match, bool include_enemy_threats);
+bool retreat_to_spawn(BotMemory& memory, MatchData& match, bool include_enemy_threats,
+                      bool include_camp_threats = true, bool camp_reward_shop_recall = false,
+                      bool visible_enemy_threat = false);
 bool recall_turn(MatchData& match, BotMemory& memory, bool force_recall = false,
                  float active_fight_distance = 5.0f);

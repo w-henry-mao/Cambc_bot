@@ -522,10 +522,64 @@ bool move_to_spawn_instead_of_recalling(BotMemory& memory, MatchData& match,
     return true;
 }
 
+std::optional<cambc::vec2> find_bush_escape_tile(MatchData& match,
+                                                 const cambc::bitboard& danger_tiles,
+                                                 const cambc::bitboard* camp_spawn_tiles,
+                                                 cambc::vec2 position) {
+    const auto& bushes = cambc::map::bushes();
+    if (bushes.is_empty()) return std::nullopt;
+    if (!match.bush_distance_ready) {
+        cambc::bitboard no_blockers;
+        cambc::bitboard visited;
+        match.bush_distance.compute(no_blockers, bushes, visited);
+        match.bush_distance_ready = true;
+    }
+
+    const auto current_bush_distance = match.bush_distance.get(position);
+    cambc::bitboard occupied_allies;
+    cambc::bitboard occupied_enemies;
+    cambc::bitboard camp_tiles;
+    cambc::bitboard teleport_tiles;
+    nav::refresh_visible_champion_tiles(occupied_allies, occupied_enemies);
+    cambc::vision::camp_tiles_into(camp_tiles);
+    cambc::vision::teleport_tiles_into(teleport_tiles);
+    cambc::bitboard blocked = danger_tiles | match.static_blockers | occupied_allies |
+        occupied_enemies | camp_tiles | teleport_tiles;
+    if (camp_spawn_tiles) blocked |= *camp_spawn_tiles;
+    blocked.set(position, false);
+    cambc::bitboard roots;
+    roots.set(position);
+    cambc::bitboard visited;
+    cambc::distance_field reachable;
+    reachable.compute(blocked, roots, visited);
+
+    // Search only the current perimeter. The first valid ring wins.
+    for (int radius = 1; radius < 128; ++radius) {
+        const auto consider = [&](cambc::vec2 tile) -> std::optional<cambc::vec2> {
+            if (!cambc::map::is_in_bounds(tile) || blocked.is_set(tile) ||
+                reachable.get(tile) == cambc::distance_field::unreachable) return std::nullopt;
+            const auto bush_distance = match.bush_distance.get(tile);
+            return bush_distance > current_bush_distance
+                ? std::optional<cambc::vec2>{tile} : std::nullopt;
+        };
+
+        for (int offset = -radius; offset <= radius; ++offset) {
+            if (auto tile = consider({position.x + offset, position.y - radius})) return tile;
+            if (auto tile = consider({position.x + offset, position.y + radius})) return tile;
+        }
+        for (int offset = -radius + 1; offset < radius; ++offset) {
+            if (auto tile = consider({position.x - radius, position.y + offset})) return tile;
+            if (auto tile = consider({position.x + radius, position.y + offset})) return tile;
+        }
+    }
+    return std::nullopt;
+}
+
 }
 
 bool retreat_to_spawn(BotMemory& memory, MatchData& match, bool include_enemy_threats,
-                      bool include_camp_threats) {
+                      bool include_camp_threats, bool camp_reward_shop_recall,
+                      bool visible_enemy_threat) {
     auto& me = cambc::self();
     if (cambc::map::spawn_region(cambc::team::ally).is_set(me.position())) {
 
@@ -596,7 +650,27 @@ bool retreat_to_spawn(BotMemory& memory, MatchData& match, bool include_enemy_th
     }
 
     auto position = me.position();
-    const bool standing_on_camp_spawn_tile = camp_spawn_tiles && camp_spawn_tiles->is_set(position);
+    bool standing_on_camp_spawn_tile = camp_spawn_tiles && camp_spawn_tiles->is_set(position);
+
+    if (memory.recall_damage_escape_pending) {
+        if (visible_enemy_threat || camp_danger_tiles.is_set(position)) {
+            memory.recall_damage_escape_pending = false;
+        } else {
+            const auto destination = find_bush_escape_tile(match, danger_tiles,
+                                                            camp_spawn_tiles, position);
+            if (!destination || !me.can_move()) return true;
+            const auto old_position = position;
+            if (!nav::move_towards(memory.movement, *destination, false, false, &danger_tiles))
+                return true;
+            position = me.position();
+            if (match.bush_distance.get(position) <= match.bush_distance.get(old_position))
+                return true;
+            memory.recall_damage_escape_pending = false;
+            standing_on_camp_spawn_tile = camp_spawn_tiles && camp_spawn_tiles->is_set(position);
+            if (cambc::map::spawn_region(cambc::team::ally).is_set(position)) return true;
+            if (position == old_position) return true;
+        }
+    }
 
     use_recall_defense_ability(memory, match, include_enemy_threats, camp_danger_tiles);
     if (move_to_spawn_instead_of_recalling(memory, match, position, danger_tiles)) return true;
@@ -605,6 +679,8 @@ bool retreat_to_spawn(BotMemory& memory, MatchData& match, bool include_enemy_th
         try {
             me.recall();
             memory.recall_channel_started = true;
+            memory.recall_start_health = me.health();
+            memory.recall_was_camp_reward_shop = camp_reward_shop_recall;
             memory.tribute_altar.reset();
             memory.pursuit_target.reset();
             memory.abandoned_pursuit_target.reset();
@@ -693,6 +769,8 @@ bool retreat_to_spawn(BotMemory& memory, MatchData& match, bool include_enemy_th
         try {
             me.recall();
             memory.recall_channel_started = true;
+            memory.recall_start_health = me.health();
+            memory.recall_was_camp_reward_shop = camp_reward_shop_recall;
             memory.tribute_altar.reset();
             memory.pursuit_target.reset();
             memory.abandoned_pursuit_target.reset();
@@ -781,7 +859,7 @@ bool recall_turn(MatchData& match, BotMemory& memory, bool force_recall, float a
     if (!force_recall && !low_health && !shop_recall_eligible) return false;
 
     bool active_fight = false;
-    if (low_health || shop_recall_eligible) {
+    if (low_health || shop_recall_eligible || memory.recall_damage_escape_pending) {
         const auto& enemies = visible_enemies_for_round(match);
         for (const auto& enemy : enemies) {
             try {
@@ -819,7 +897,9 @@ bool recall_turn(MatchData& match, BotMemory& memory, bool force_recall, float a
         refresh_respawn_beliefs(match, round);
     }
     const bool result = retreat_to_spawn(memory, match, low_health && active_fight,
-                                         !shop_recall || !collecting_camp_reward);
+                                         !shop_recall || !collecting_camp_reward,
+                                         shop_recall && collecting_camp_reward,
+                                         active_fight);
 
     return result;
 }

@@ -1,6 +1,10 @@
 #include "tribute.h"
+#include "farm.h"
 #include "../nav/pathfinding.h"
+#include "../init/deferred_setup.h"
 #include "../core/rng.h"
+#include "../core/match_data.h"
+#include "../champions/champion_profile.h"
 #include "../core/team_strategy.h"
 #include <cambc.h>
 #include <algorithm>
@@ -164,6 +168,48 @@ std::optional<cambc::vec2> closest_altar(const cambc::vec2& position) {
     return best_altar;
 }
 
+std::optional<cambc::vec2> camp_group_on_altar_ring(MatchData& match, cambc::vec2 altar) {
+    if (!match.final_tribute_altar_ring_cache_altar ||
+        *match.final_tribute_altar_ring_cache_altar != altar) {
+        match.final_tribute_altar_ring_cache_altar = altar;
+        match.final_tribute_altar_ring_cache.clear();
+        match.final_tribute_altar_ring_cache.draw_chebyshev(altar, 1.0f);
+        match.final_tribute_altar_ring_cache &= ~cambc::map::altars();
+        match.final_tribute_altar_ring_camp_groups.clear();
+        for (std::size_t i = 0; i < match.camp_groups.size(); ++i) {
+            auto& group = match.camp_groups[i];
+            ensure_spawn_data(group);
+            if (!(group.spawn_tiles & match.final_tribute_altar_ring_cache).is_empty())
+                match.final_tribute_altar_ring_camp_groups.push_back(i);
+        }
+    }
+    if (match.final_tribute_altar_ring_camp_groups.empty()) return std::nullopt;
+
+    cambc::bitboard visible_camps;
+    cambc::vision::camp_tiles_into(visible_camps);
+    const auto visible_ring_camps = visible_camps & match.final_tribute_altar_ring_cache;
+    if (visible_ring_camps.is_empty()) return std::nullopt;
+    for (const auto index : match.final_tribute_altar_ring_camp_groups) {
+        const auto& group = match.camp_groups[index];
+        if (!(group.spawn_tiles & visible_ring_camps).is_empty()) return group.centre;
+    }
+    return std::nullopt;
+}
+
+void move_towards_altar_or_clear_camp(const ChampionProfile& profile, MatchData& match,
+                                     BotMemory& memory, cambc::vec2 altar,
+                                     cambc::vec2 destination, cambc::vec2* selected_target) {
+    auto& me = cambc::self();
+    if (!me.can_move()) return;
+    bool failed_after_bush_reveal = false;
+    if (nav::move_towards(memory.movement, destination, true, false, nullptr,
+                          &failed_after_bush_reveal) || !me.can_move() || failed_after_bush_reveal) return;
+
+    if (const auto camp_group = camp_group_on_altar_ring(match, altar)) {
+        farm_turn(profile, match, memory, camp_group, selected_target);
+    }
+}
+
 bool is_at_ally_spawn(const cambc::vec2& position) {
     return cambc::map::spawn_region(cambc::team::ally).is_set(position);
 }
@@ -234,7 +280,8 @@ cambc::bitboard escort_blockers(const cambc::vec2& position) {
     return blocked;
 }
 
-bool guard_altar(BotMemory& memory, cambc::vec2 altar) {
+bool guard_altar(const ChampionProfile& profile, MatchData& match, BotMemory& memory,
+                 cambc::vec2 altar, cambc::vec2* selected_target) {
     auto& me = cambc::self();
     const auto position = me.position();
     if (me.is_submitting_gems()) return true;
@@ -273,9 +320,15 @@ bool guard_altar(BotMemory& memory, cambc::vec2 altar) {
                         destination = tile;
                     }
                 }
-                if (destination) nav::move_towards(memory.movement, *destination, true, false);
+                if (destination) move_towards_altar_or_clear_camp(
+                    profile, match, memory, altar, *destination, selected_target);
+                else if (const auto camp_group = camp_group_on_altar_ring(match, altar))
+                    farm_turn(profile, match, memory, camp_group, selected_target);
                 return true;
             }
+            if (const auto camp_group = camp_group_on_altar_ring(match, altar))
+                farm_turn(profile, match, memory, camp_group, selected_target);
+            return true;
         }
         if (!me.can_move()) return true;
         std::vector<cambc::vec2> moves;
@@ -307,7 +360,8 @@ bool guard_altar(BotMemory& memory, cambc::vec2 altar) {
             destination = tile;
         }
     }
-    if (destination) nav::move_towards(memory.movement, *destination, true, false);
+    if (destination) move_towards_altar_or_clear_camp(
+        profile, match, memory, altar, *destination, selected_target);
     return true;
 }
 
@@ -431,7 +485,8 @@ void pause_final_tribute_for_recall(BotMemory& memory) {
     set_final_tribute_mode(FinalTributeMode::inactive);
 }
 
-bool final_tribute_turn(BotMemory& memory, cambc::vec2* selected_target) {
+bool final_tribute_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memory,
+                        cambc::vec2* selected_target) {
     if (selected_target) *selected_target = {127, 127};
     auto mode = final_tribute_mode();
     if (mode == FinalTributeMode::inactive) return false;
@@ -462,13 +517,13 @@ bool final_tribute_turn(BotMemory& memory, cambc::vec2* selected_target) {
                 memory.prism_final_tribute_last_channel_round = cambc::round_number();
             } catch (const cambc::error&) { }
         } else if (me.position().chebyshev_distance(altar) > 1) {
-            nav::move_towards(memory.movement, altar, true, false);
+            move_towards_altar_or_clear_camp(profile, match, memory, altar, altar, selected_target);
         }
         return true;
     }
 
     memory.movement.movement_guard_center.reset();
-    return guard_altar(memory, altar);
+    return guard_altar(profile, match, memory, altar, selected_target);
 }
 
 bool tribute_turn(BotMemory& memory) {

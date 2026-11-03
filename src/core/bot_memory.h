@@ -7,6 +7,9 @@
 struct BotMemory {
     nav::MovementMemory movement;
     bool recall_channel_started = false;
+    float recall_start_health = 0.0f;
+    bool recall_was_camp_reward_shop = false;
+    bool recall_damage_escape_pending = false;
     std::uint32_t spawn_arrival_round = std::numeric_limits<std::uint32_t>::max();
     std::optional<cambc::handle_champion_t> pursuit_target;
     std::optional<cambc::handle_champion_t> abandoned_pursuit_target;

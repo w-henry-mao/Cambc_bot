@@ -109,6 +109,10 @@ void Bot::play_turn() {
             return;
         }
         memory_.recall_channel_started = false;
+        memory_.recall_damage_escape_pending = !memory_.recall_was_camp_reward_shop &&
+            !cambc::map::spawn_region(cambc::team::ally).is_set(me.position()) &&
+            me.health() < memory_.recall_start_health;
+        memory_.recall_was_camp_reward_shop = false;
         if (cambc::map::spawn_region(cambc::team::ally).is_set(me.position())) {
             memory_.spawn_arrival_round = round;
             if (is_prism) {

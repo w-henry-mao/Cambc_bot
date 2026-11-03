@@ -34,7 +34,8 @@ struct MovementMemory {
 // A forbidden mask constrains both walking and dash landing tiles.
 bool move_towards(MovementMemory& movement, cambc::vec2 target, bool allow_dash = true,
                   bool target_is_camp = false,
-                  const cambc::bitboard* additional_forbidden_tiles = nullptr);
+                  const cambc::bitboard* additional_forbidden_tiles = nullptr,
+                  bool* failed_after_bush_reveal = nullptr);
 bool move_into_radius(MovementMemory& movement, cambc::vec2 center, int radius,
                       bool fallback_to_closest = false,
                       const cambc::bitboard* additional_forbidden_tiles = nullptr);

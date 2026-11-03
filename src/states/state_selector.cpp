@@ -68,7 +68,8 @@ bool prism_should_preserve_nearby_final_tribute(BotMemory& memory) {
     return turns_remaining && *turns_remaining <= 23;
 }
 
-bool final_tribute_turn_flow(MatchData& match, BotMemory& memory, bool prism) {
+bool final_tribute_turn_flow(const ChampionProfile& profile, MatchData& match,
+                             BotMemory& memory, bool prism) {
     cambc::vec2 target{127, 127};
     const auto prism_engage_distance = prism && cambc::self().is_submitting_gems() ? 4.0f : 100.0f;
 
@@ -122,7 +123,7 @@ bool final_tribute_turn_flow(MatchData& match, BotMemory& memory, bool prism) {
         return true;
     }
     cambc::vec2 tribute_target{127, 127};
-    if (final_tribute_turn(memory, prism ? &tribute_target : nullptr)) {
+    if (final_tribute_turn(profile, match, memory, prism ? &tribute_target : nullptr)) {
         if (prism)
             team_strategy::publish(team_strategy::Mode::farming,
                                    cambc::self().position(), tribute_target);
@@ -221,7 +222,7 @@ void run_state_selector(const ChampionProfile& profile, MatchData& match, BotMem
     const bool in_final_tribute = final_tribute_active();
 
     if (in_final_tribute) {
-        if (final_tribute_turn_flow(match, memory, prism)) return;
+        if (final_tribute_turn_flow(profile, match, memory, prism)) return;
     }
 
     if (prism) handle_prism(profile, match, memory);
