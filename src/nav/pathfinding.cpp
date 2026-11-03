@@ -77,6 +77,12 @@ void refresh_landing_blocked(PathScratch& scratch, cambc::vec2 position,
     landing_blocked.set(position, false);
 }
 
+bool newly_revealed_bush_tile(const cambc::bitboard& visible_before_move) {
+    const auto newly_revealed = cambc::vision::visible_tiles() & ~visible_before_move &
+        cambc::map::bushes();
+    return !newly_revealed.is_empty();
+}
+
 bool path_is_clear(cambc::vec2 start, const DashOption& option, const cambc::bitboard& walls) {
     for (std::size_t i = 0; i < option.intermediate_count; ++i) {
         const cambc::vec2 intermediate{start.x + option.intermediate_x[i],
@@ -142,7 +148,11 @@ bool walk_towards(MovementMemory& movement, cambc::vec2 target,
         }
     }
     try {
-        return me.move_towards(target);
+        const auto visible_before_move = cambc::vision::visible_tiles();
+        if (me.move_towards(target)) return true;
+        if (me.can_move() && newly_revealed_bush_tile(visible_before_move))
+            return me.move_towards(target);
+        return false;
     } catch (const cambc::error&) {
         return false;
     }

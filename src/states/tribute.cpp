@@ -14,7 +14,6 @@ constexpr std::uint32_t kStaleGemRounds = 100;
 constexpr std::uint32_t kChampionRespawnRounds = 60;
 constexpr std::uint32_t kRespawnWaitWindow = 5;
 constexpr std::uint32_t kLateFinalTributeRound = 1800;
-constexpr std::uint32_t kLateFinalTributeGemThreshold = 100;
 constexpr std::size_t kMaxTeamSize = 5;
 
 enum class FinalTributeMode : std::uint8_t { inactive, recalling, escorting };
@@ -335,7 +334,7 @@ void update_final_tribute(BotMemory& memory) {
         const auto combined_gems = me.gem_count() + cambc::global_submitted_gems(cambc::team::ally);
         const auto round = cambc::round_number();
         const bool final_tribute_threshold_met = combined_gems >= 1000 ||
-            (round >= kLateFinalTributeRound && me.gem_count() >= kLateFinalTributeGemThreshold);
+            round >= kLateFinalTributeRound;
         if (memory.final_tribute_resume_round != 0) {
             if (round < memory.final_tribute_resume_round) return;
             memory.final_tribute_resume_round = 0;

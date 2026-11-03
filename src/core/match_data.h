@@ -43,6 +43,8 @@ struct MatchData {
     std::vector<CachedCampGroup> camp_groups;
     cambc::bitboard all_camp_spawn_tiles;
     bool all_camp_spawn_tiles_ready = false;
+    cambc::bitboard enemy_spawn_avoidance_zone;
+    std::vector<cambc::vec2> ally_spawn_positions;
     cambc::bitboard static_blockers;               // walls, holes, altars, enemy spawn
     cambc::bitboard beside_mask;                   // not a spawn tile of any group, not a static blocker
     bool beside_mask_ready = false;

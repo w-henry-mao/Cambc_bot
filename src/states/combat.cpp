@@ -19,7 +19,30 @@ struct Enemy {
     cambc::vec2 position;
     float health;
     float damage_health_ratio;
+    bool in_spawn_zone;
 };
+
+std::optional<cambc::vec2> own_spawn_destination(const MatchData& match,
+                                                 const cambc::vec2& my_position) {
+    std::optional<cambc::vec2> destination;
+    std::int64_t best_distance = std::numeric_limits<std::int64_t>::max();
+    for (const auto tile : match.ally_spawn_positions) {
+        const auto distance = my_position.chebyshev_distance(tile);
+        if (!destination || distance < best_distance) {
+            destination = tile;
+            best_distance = distance;
+        }
+    }
+    return destination;
+}
+
+void retreat_toward_own_spawn(MatchData& match, BotMemory& memory, const cambc::vec2& my_position,
+                              cambc::vec2* target_position) {
+    const auto destination = own_spawn_destination(match, my_position);
+    if (!destination) return;
+    if (target_position) *target_position = *destination;
+    nav::move_towards(memory.movement, *destination, true, false);
+}
 
 bool is_better_target(const Enemy& a, const Enemy& b, const cambc::vec2& my_position) {
     if (a.damage_health_ratio != b.damage_health_ratio)
@@ -257,7 +280,7 @@ bool combat_turn(MatchData& match, BotMemory& memory, float engage_distance,
             const auto dps = estimated_dps(champion, profile);
             const auto ratio = max_health > 0.0f ? dps / max_health : 0.0f;
             enemies.push_back({champion, static_cast<cambc::handle_champion_t>(champion), position,
-                               health, ratio});
+                               health, ratio, match.enemy_spawn_avoidance_zone.is_set(position)});
         } catch (const cambc::error&) { }
     }
 
@@ -266,7 +289,7 @@ bool combat_turn(MatchData& match, BotMemory& memory, float engage_distance,
         const auto found = std::find_if(enemies.begin(), enemies.end(), [&](const Enemy& enemy) {
             return enemy.handle == *memory.pursuit_target;
         });
-        if (found == enemies.end() || found->health <= 0.0f) {
+        if (found == enemies.end() || found->health <= 0.0f || found->in_spawn_zone) {
             clear_pursuit(memory);
         } else {
             if (round - memory.pursuit_last_damage_round >= kPursuitLimit) {
@@ -298,10 +321,12 @@ bool combat_turn(MatchData& match, BotMemory& memory, float engage_distance,
     }
 
     Enemy* best_nearby = nullptr;
+    Enemy* best_spawn_suppressed = nullptr;
     for (auto& enemy : enemies) {
         if (enemy.position.chebyshev_distance(my_position) > engage_distance) continue;
         if (memory.abandoned_pursuit_target && enemy.handle == *memory.abandoned_pursuit_target) continue;
-        if (!best_nearby || is_better_target(enemy, *best_nearby, my_position)) best_nearby = &enemy;
+        auto*& best = enemy.in_spawn_zone ? best_spawn_suppressed : best_nearby;
+        if (!best || is_better_target(enemy, *best, my_position)) best = &enemy;
     }
     if (target && best_nearby && best_nearby->handle != target->handle &&
         is_better_target(*best_nearby, *target, my_position)) {
@@ -311,6 +336,11 @@ bool combat_turn(MatchData& match, BotMemory& memory, float engage_distance,
     } else if (!target) {
         target = best_nearby;
         if (!target) {
+            if (best_spawn_suppressed) {
+                clear_pursuit(memory);
+                retreat_toward_own_spawn(match, memory, my_position, target_position);
+                return true;
+            }
             if (keep_mode_while_visible && !enemies.empty()) {
                 if (target_position) {
                     const auto abandoned = std::find_if(enemies.begin(), enemies.end(), [&](const Enemy& enemy) {
@@ -324,6 +354,12 @@ bool combat_turn(MatchData& match, BotMemory& memory, float engage_distance,
         }
         memory.pursuit_target = target->handle;
         memory.pursuit_last_damage_round = round;
+    }
+
+    if (target && target->in_spawn_zone) {
+        clear_pursuit(memory);
+        retreat_toward_own_spawn(match, memory, my_position, target_position);
+        return true;
     }
 
     if (target_position) *target_position = target->position;

@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <type_traits>
 #include <variant>
@@ -20,6 +21,7 @@ constexpr int kDashCooldown = 8;
 constexpr std::uint32_t kRewardBeliefRounds = 20;
 constexpr std::uint32_t kYieldCaptureRounds = 5;
 constexpr int kHarvestNearRadius = 5;
+constexpr std::uint32_t kShopRecallGoldThreshold = 300;
 
 int champion_rank(cambc::champion_type type) {
     switch (type) {
@@ -191,12 +193,18 @@ float discount(float rounds) {
     return std::pow(farm_constants::kRoundDiscount, rounds);
 }
 
+float gold_weight(std::uint32_t round) {
+    if (round > 1600 || cambc::global_submitted_gems(cambc::team::enemy) > 800) return 0.0f;
+    return farm_constants::kGoldWeight;
+}
+
 // Calculate camp value
 std::optional<float> camp_value(const CachedCampGroup& group, float walk, float dps, int capture_time) {
     if (dps <= 0) return std::nullopt;
 
     const int kill = static_cast<int>(group.design_health / dps) + 1;
-    const float reward = static_cast<float>(group.gem_value) + farm_constants::kGoldWeight * static_cast<float>(group.gold_value);
+    const float reward = static_cast<float>(group.gem_value) +
+        gold_weight(cambc::round_number()) * static_cast<float>(group.gold_value);
 
     return reward * discount(walk + static_cast<float>(kill + capture_time));
 }
@@ -207,6 +215,7 @@ std::optional<int> select_best_camp(const MatchData& match, const cambc::distanc
     std::optional<int> best_group;
     float best_value = 0.0f;
     const int capture_time = get_capture_time();
+    const float current_gold_weight = gold_weight(now);
 
     for (int i = 0; i < static_cast<int>(match.camp_groups.size()); ++i) {
         const auto& group = match.camp_groups[static_cast<std::size_t>(i)];
@@ -223,7 +232,8 @@ std::optional<int> select_best_camp(const MatchData& match, const cambc::distanc
         if (group.reward_waiting && now - group.reward_seen_round >= kRewardBeliefRounds) continue;
         const float adjusted_walk = static_cast<float>(walk) * walk_factor;
         const float raw_walk = static_cast<float>(walk);
-        const float reward = static_cast<float>(group.gem_value) + farm_constants::kGoldWeight * static_cast<float>(group.gold_value);
+        const float reward = static_cast<float>(group.gem_value) +
+            current_gold_weight * static_cast<float>(group.gold_value);
         const float value = reward * discount(group.reward_waiting
             ? raw_walk + static_cast<float>(capture_time)
             : raw_walk + static_cast<float>(static_cast<int>(group.design_health / dps) + 1 + capture_time) +
@@ -301,9 +311,221 @@ bool surrounded_by_live_camps(cambc::vec2 position, const cambc::bitboard& live_
     return true;
 }
 
+bool use_recall_defense_ability(BotMemory& memory, MatchData& match,
+                                bool include_enemies,
+                                const cambc::bitboard& camp_danger_tiles) {
+    auto& me = cambc::self();
+    if (!me.can_cast()) return false;
+
+    const bool threatened_by_camp = camp_danger_tiles.is_set(me.position());
+    if (!include_enemies && !threatened_by_camp) return false;
+    static const std::vector<cambc::champion> no_enemies;
+    static const std::vector<cambc::camp> no_camps;
+    const auto& enemies = include_enemies ? visible_enemies_for_round(match) : no_enemies;
+    const auto& camps = threatened_by_camp ? cambc::vision::camps() : no_camps;
+
+    auto abilities = me.abilities();
+    const auto my_position = me.position();
+    struct Candidate {
+        std::size_t ability_slot;
+        std::size_t target_index;
+        bool is_camp;
+        std::optional<cambc::vec2> dash_landing;
+        bool lethal;
+        float damage;
+    };
+    std::optional<Candidate> best;
+
+    for (std::size_t slot = 0; slot < abilities.size(); ++slot) {
+        auto& ability = abilities[slot];
+        try {
+            if (!ability.is_ready()) continue;
+
+            const bool damaging = ability.is_damage() || ability.is_aoe_damage() ||
+                (ability.is_cc() && ability.get<cambc::ability_cc>().modifier > 0.0f) ||
+                (ability.is_dash() && ability.get<cambc::ability_dash>().modifier > 0.0f);
+            if (!damaging) continue;
+            const float base_damage = ability.damage_amount();
+            if (base_damage <= 0.0f) continue;
+
+            const bool is_dash = ability.is_dash();
+            const bool stuns = (ability.is_cc() && ability.get<cambc::ability_cc>().duration > 0) ||
+                (is_dash && ability.get<cambc::ability_dash>().duration > 0);
+            if (is_dash && memory.movement.cooldown > 0) continue;
+
+            const auto targets = ability.valid_targets();
+            const bool can_target_enemies = targets.contains(cambc::ability_target_mask::enemies);
+            const bool can_target_camps = targets.contains(cambc::ability_target_mask::camps);
+            if (is_dash ? !targets.contains(cambc::ability_target_mask::ground)
+                        : (!can_target_enemies && !can_target_camps)) continue;
+
+            const auto valid_tiles = ability.valid_tiles();
+            cambc::bitboard legal_dash_landings;
+            cambc::ability_dash dash_info{};
+            if (is_dash) {
+                dash_info = ability.get<cambc::ability_dash>();
+                nav::filter_legal_dash_landings(memory.movement, my_position,
+                                                valid_tiles, legal_dash_landings);
+            }
+
+            const auto consider_target = [&](std::size_t target_index, bool is_camp,
+                                             cambc::vec2 target_position, float target_health,
+                                             bool stun_immune, float damage_dealt) {
+                if (target_health <= 0.0f || damage_dealt <= 0.0f) return;
+                const bool lethal = damage_dealt >= target_health;
+                if (!lethal && (!stuns || stun_immune)) return;
+
+                std::optional<cambc::vec2> landing;
+                if (is_dash) {
+                    for (const auto tile : legal_dash_landings.positions()) {
+                        if (tile.chebyshev_distance(target_position) >
+                            static_cast<std::uint32_t>(dash_info.radius)) continue;
+                        // A stun dash should preserve distance unless it will finish the target.
+                        if (!lethal && tile.chebyshev_distance(target_position) <
+                            my_position.chebyshev_distance(target_position)) continue;
+                        landing = tile;
+                        break;
+                    }
+                    if (!landing) return;
+                } else if (!valid_tiles.is_set(target_position)) {
+                    return;
+                }
+
+                Candidate candidate{slot, target_index, is_camp, landing, lethal, damage_dealt};
+                if (!best || (candidate.lethal && !best->lethal) ||
+                    (candidate.lethal == best->lethal && candidate.damage > best->damage)) {
+                    best = candidate;
+                }
+            };
+
+            if (!is_dash && can_target_enemies) {
+                for (std::size_t i = 0; i < enemies.size(); ++i) {
+                    const auto& enemy = enemies[i];
+                    if (!enemy.is_alive()) continue;
+                    const auto enemy_position = enemy.position();
+                    if (!valid_tiles.is_set(enemy_position)) continue;
+                    const float enemy_health = enemy.health();
+                    const float damage_dealt = ability.damage_amount(enemy);
+                    const bool lethal = damage_dealt >= enemy_health;
+                    const bool stun_immune = stuns && !lethal &&
+                        enemy.passive() == cambc::passive_type::stun_immunity;
+                    consider_target(i, false, enemy_position, enemy_health, stun_immune, damage_dealt);
+                }
+            }
+
+            if (!is_dash && threatened_by_camp && can_target_camps) {
+                for (std::size_t i = 0; i < camps.size(); ++i) {
+                    const auto& camp = camps[i];
+                    const auto camp_position = camp.position();
+                    if (!valid_tiles.is_set(camp_position)) continue;
+                    const float camp_health = camp.health();
+                    consider_target(i, true, camp_position, camp_health, false, base_damage);
+                }
+            }
+
+            if (is_dash) {
+                if (include_enemies) {
+                    for (std::size_t i = 0; i < enemies.size(); ++i) {
+                        const auto& enemy = enemies[i];
+                        if (!enemy.is_alive()) continue;
+                        const auto enemy_position = enemy.position();
+                        const float enemy_health = enemy.health();
+                        const float damage_dealt = ability.damage_amount(enemy);
+                        const bool lethal = damage_dealt >= enemy_health;
+                        const bool stun_immune = stuns && !lethal &&
+                            enemy.passive() == cambc::passive_type::stun_immunity;
+                        consider_target(i, false, enemy_position, enemy_health, stun_immune, damage_dealt);
+                    }
+                }
+                if (threatened_by_camp) {
+                    for (std::size_t i = 0; i < camps.size(); ++i) {
+                        const auto& camp = camps[i];
+                        consider_target(i, true, camp.position(), camp.health(), false,
+                                        base_damage);
+                    }
+                }
+            }
+        } catch (const cambc::error&) {
+            continue;
+        }
+    }
+
+    if (!best) return false;
+    try {
+        auto& ability = abilities[best->ability_slot];
+        bool used = false;
+        if (best->dash_landing) {
+            used = ability.use(*best->dash_landing);
+        } else if (best->is_camp) {
+            used = ability.use(camps[best->target_index]);
+        } else {
+            used = ability.use(enemies[best->target_index]);
+        }
+        if (used && ability.is_dash()) memory.movement.cooldown = kDashCooldown;
+        return used;
+    } catch (const cambc::error&) {
+        return false;
+    }
 }
 
-bool retreat_to_spawn(BotMemory& memory, MatchData& match, bool include_enemy_threats) {
+bool move_to_spawn_instead_of_recalling(BotMemory& memory, MatchData& match,
+                                        cambc::vec2 position,
+                                        const cambc::bitboard& danger_tiles) {
+    std::uint16_t recall_turns = 5;
+    try {
+        const auto counts = cambc::self().item_count();
+        if (counts[cambc::item_type::home_emblem_of_strength] > 0 ||
+            counts[cambc::item_type::home_emblem_of_focus] > 0 ||
+            counts[cambc::item_type::home_emblem_of_health] > 0) {
+            recall_turns = 3;
+        }
+    } catch (const cambc::error&) { }
+
+    std::uint32_t nearest_direct_distance = std::numeric_limits<std::uint32_t>::max();
+    for (const auto spawn : match.ally_spawn_positions) {
+        nearest_direct_distance = std::min(nearest_direct_distance,
+            static_cast<std::uint32_t>(position.chebyshev_distance(spawn)));
+    }
+    if (nearest_direct_distance >= recall_turns) return false;
+
+    cambc::bitboard blocked = match.static_blockers | danger_tiles;
+    cambc::bitboard allies;
+    cambc::bitboard enemies;
+    cambc::bitboard camps;
+    cambc::bitboard teleports;
+    nav::refresh_visible_champion_tiles(allies, enemies);
+    cambc::vision::camp_tiles_into(camps);
+    cambc::vision::teleport_tiles_into(teleports);
+    blocked |= allies | enemies | camps | teleports;
+    blocked.set(position, false);
+
+    cambc::bitboard roots;
+    roots.set(position);
+    cambc::bitboard visited;
+    cambc::distance_field field;
+    field.compute(blocked, roots, visited);
+
+    std::optional<cambc::vec2> destination;
+    std::uint16_t shortest = cambc::distance_field::unreachable;
+    for (const auto spawn : match.ally_spawn_positions) {
+        if (blocked.is_set(spawn)) continue;
+        const auto distance = field.get(spawn);
+        if (distance < shortest) {
+            shortest = distance;
+            destination = spawn;
+        }
+    }
+    if (!destination || shortest >= recall_turns) return false;
+
+    if (cambc::self().can_move())
+        nav::move_towards(memory.movement, *destination, true, false, &danger_tiles);
+    return true;
+}
+
+}
+
+bool retreat_to_spawn(BotMemory& memory, MatchData& match, bool include_enemy_threats,
+                      bool include_camp_threats) {
     auto& me = cambc::self();
     if (cambc::map::spawn_region(cambc::team::ally).is_set(me.position())) {
 
@@ -311,16 +533,23 @@ bool retreat_to_spawn(BotMemory& memory, MatchData& match, bool include_enemy_th
     }
 
     cambc::bitboard danger_tiles;
+    cambc::bitboard camp_danger_tiles;
+    const bool non_prism = me.champion_name() != cambc::champion_type::prism;
+    const cambc::bitboard* camp_spawn_tiles = non_prism
+        ? &all_camp_spawn_tiles(match) : nullptr;
     const auto round = cambc::round_number();
-    for (const auto& group : match.camp_groups) {
-        const bool known_inactive = group.reward_waiting || group.respawn_ready_round > round ||
-            (group.blocked_round != std::numeric_limits<std::uint32_t>::max() &&
-             round >= group.blocked_round && round - group.blocked_round < farm_constants::kBlockedSkipRounds);
-        if (known_inactive) continue;
-        for (const auto& camp : group.camp_threats) {
-            const bool respawn_due = group.respawn_ready_round > 0 && group.respawn_ready_round <= round;
-            if (!camp.alive && !respawn_due) continue;
-            danger_tiles.draw_chebyshev(camp.position, static_cast<float>(camp.attack_range));
+    if (include_camp_threats) {
+        for (const auto& group : match.camp_groups) {
+            const bool known_inactive = group.reward_waiting || group.respawn_ready_round > round ||
+                (group.blocked_round != std::numeric_limits<std::uint32_t>::max() &&
+                 round >= group.blocked_round && round - group.blocked_round < farm_constants::kBlockedSkipRounds);
+            if (known_inactive) continue;
+            for (const auto& camp : group.camp_threats) {
+                const bool respawn_due = group.respawn_ready_round > 0 && group.respawn_ready_round <= round;
+                if (!camp.alive && !respawn_due) continue;
+                danger_tiles.draw_chebyshev(camp.position, static_cast<float>(camp.attack_range));
+                camp_danger_tiles.draw_chebyshev(camp.position, static_cast<float>(camp.attack_range));
+            }
         }
     }
 
@@ -367,8 +596,12 @@ bool retreat_to_spawn(BotMemory& memory, MatchData& match, bool include_enemy_th
     }
 
     auto position = me.position();
+    const bool standing_on_camp_spawn_tile = camp_spawn_tiles && camp_spawn_tiles->is_set(position);
 
-    if (!danger_tiles.is_set(position)) {
+    use_recall_defense_ability(memory, match, include_enemy_threats, camp_danger_tiles);
+    if (move_to_spawn_instead_of_recalling(memory, match, position, danger_tiles)) return true;
+
+    if (!danger_tiles.is_set(position) && !standing_on_camp_spawn_tile) {
         try {
             me.recall();
             memory.recall_channel_started = true;
@@ -386,51 +619,73 @@ bool retreat_to_spawn(BotMemory& memory, MatchData& match, bool include_enemy_th
         return true;
     }
 
-    cambc::bitboard safe_candidates;
-    // Dilate the dense danger mask with whole-board shifts. This is the same
-    // radius-1 Chebyshev neighborhood as drawing around every set tile, but
-    // has fixed cost instead of one SDK draw call per danger tile.
-    cambc::bitboard horizontal_span = danger_tiles;
-    cambc::bitboard shifted;
-    danger_tiles.shift_right_into(-1, shifted);
-    horizontal_span |= shifted;
-    danger_tiles.shift_right_into(1, shifted);
-    horizontal_span |= shifted;
+    const auto choose_safe_destination = [&]() -> std::optional<cambc::vec2> {
+        cambc::bitboard safe_candidates;
+        if (danger_tiles.is_set(position)) {
+            // Dilate danger tiles by one tile to find safe recall standing positions.
+            cambc::bitboard horizontal_span = danger_tiles;
+            cambc::bitboard shifted;
+            danger_tiles.shift_right_into(-1, shifted);
+            horizontal_span |= shifted;
+            danger_tiles.shift_right_into(1, shifted);
+            horizontal_span |= shifted;
 
-    safe_candidates = horizontal_span;
-    horizontal_span.shift_up_into(-1, shifted);
-    safe_candidates |= shifted;
-    horizontal_span.shift_up_into(1, shifted);
-    safe_candidates |= shifted;
-    safe_candidates &= ~danger_tiles;
-    safe_candidates &= ~match.static_blockers;
-
-    cambc::bitboard occupied_allies;
-    cambc::bitboard occupied_enemies;
-    nav::refresh_visible_champion_tiles(occupied_allies, occupied_enemies);
-    safe_candidates &= ~(occupied_allies | occupied_enemies);
-
-    cambc::bitboard roots;
-    roots.set(position);
-    cambc::bitboard visited;
-    cambc::distance_field field;
-    field.compute_to(match.static_blockers, roots, safe_candidates, visited);
-
-    std::optional<cambc::vec2> destination;
-    int nearest = kUnreached;
-    for (const auto tile : safe_candidates.positions()) {
-        const int distance = field.get(tile);
-        if (distance != kUnreached && distance < nearest) {
-            nearest = distance;
-            destination = tile;
+            safe_candidates = horizontal_span;
+            horizontal_span.shift_up_into(-1, shifted);
+            safe_candidates |= shifted;
+            horizontal_span.shift_up_into(1, shifted);
+            safe_candidates |= shifted;
+        } else {
+            // A non-Prism champion standing on a camp spawn tile must leave it
+            // before recalling, even when no threat currently marks it unsafe.
+            safe_candidates.draw_chebyshev(position, 1);
         }
-    }
+        safe_candidates &= ~danger_tiles;
+        safe_candidates &= ~match.static_blockers;
+        if (camp_spawn_tiles) safe_candidates &= ~*camp_spawn_tiles;
+
+        cambc::bitboard occupied_allies;
+        cambc::bitboard occupied_enemies;
+        nav::refresh_visible_champion_tiles(occupied_allies, occupied_enemies);
+        safe_candidates &= ~(occupied_allies | occupied_enemies);
+
+        cambc::bitboard roots;
+        roots.set(me.position());
+        cambc::bitboard visited;
+        cambc::distance_field field;
+        field.compute_to(match.static_blockers, roots, safe_candidates, visited);
+
+        std::optional<cambc::vec2> best;
+        int nearest = kUnreached;
+        for (const auto tile : safe_candidates.positions()) {
+            const int distance = field.get(tile);
+            if (distance != kUnreached && distance < nearest) {
+                nearest = distance;
+                best = tile;
+            }
+        }
+        return best;
+    };
+
+    auto destination = choose_safe_destination();
     if (!destination) {
 
         return true;
     }
 
-    const bool moved = nav::move_towards(memory.movement, *destination, true, false);
+    const auto visibility_before_move = cambc::vision::visible_tiles();
+    bool moved = nav::move_towards(memory.movement, *destination, true, false);
+    // The SDK retry handles a newly revealed obstruction along the route. If
+    // the selected final standing tile itself was revealed occupied, select a
+    // different tile; retrying the same target cannot make it usable.
+    if (!moved && me.can_move()) {
+        const auto newly_revealed_bushes = cambc::vision::visible_tiles() &
+            ~visibility_before_move & cambc::map::bushes();
+        if (newly_revealed_bushes.is_set(*destination)) {
+            destination = choose_safe_destination();
+            if (destination) moved = nav::move_towards(memory.movement, *destination, true, false);
+        }
+    }
 
     if (!moved) return true;
     position = me.position();
@@ -453,32 +708,97 @@ bool retreat_to_spawn(BotMemory& memory, MatchData& match, bool include_enemy_th
     return true;
 }
 
+bool capture_allows_shop_recall(const MatchData& match, cambc::vec2 position,
+                               std::uint32_t current_gold, bool& collecting_reward) {
+    collecting_reward = false;
+    const CachedCampGroup* capturing_group = nullptr;
+    cambc::map::camp_group_capture_state capture{};
+    for (const auto& group : match.camp_groups) {
+        if (!group.spawn_tiles.is_set(position) || !group.view) continue;
+        try {
+            const auto state = group.view->state();
+            if (!std::holds_alternative<cambc::map::camp_group_reward_available>(state)) continue;
+            capture = group.view->capture_state();
+            if (capture.state != cambc::map::camp_group_capture_type::ally_capturing) {
+                // Stay until our presence has started an allied capture.
+                return false;
+            }
+            capturing_group = &group;
+            collecting_reward = true;
+            break;
+        } catch (const cambc::error&) {
+            // If a reward-bearing group cannot be inspected, avoid leaving its spawn tile.
+            return false;
+        }
+    }
+
+    if (!capturing_group) return current_gold >= kShopRecallGoldThreshold;
+
+    std::uint32_t capturer_count = 1; // This champion is standing on a spawn tile.
+    const auto self_handle = static_cast<cambc::handle_champion_t>(cambc::self());
+    for (const auto& ally : cambc::vision::champions(cambc::team::ally)) {
+        try {
+            if (!ally.is_alive() || static_cast<cambc::handle_champion_t>(ally) == self_handle) continue;
+            if (capturing_group->spawn_tiles.is_set(ally.position())) ++capturer_count;
+        } catch (const cambc::error&) {
+            // Unqueryable allies are not assumed to be sharing this camp's reward.
+        }
+    }
+    const auto estimated_gold_share = capturing_group->gold_value / capturer_count;
+    if (current_gold + estimated_gold_share < kShopRecallGoldThreshold) return false;
+
+    std::uint32_t recall_turns = 5;
+    try {
+        const auto counts = cambc::self().item_count();
+        if (counts[cambc::item_type::home_emblem_of_strength] > 0 ||
+            counts[cambc::item_type::home_emblem_of_focus] > 0 ||
+            counts[cambc::item_type::home_emblem_of_health] > 0) {
+            recall_turns = 3;
+        }
+    } catch (const cambc::error&) { }
+
+    // Camp capture resolves before a completed recall at round start.
+    return capture.timer >= 0 && static_cast<std::uint32_t>(capture.timer) <= recall_turns;
+}
+
 bool recall_turn(MatchData& match, BotMemory& memory, bool force_recall, float active_fight_distance) {
     auto& me = cambc::self();
     const auto position = me.position();
     const bool at_spawn = cambc::map::spawn_region(cambc::team::ally).is_set(position);
+
+    // Forced recalls do not depend on combat or shop-recall state. Handle the
+    // spawn case before querying health, enemy vision, or camp capture state.
+    if (force_recall && at_spawn) {
+        if (me.is_submitting_gems()) {
+            try { me.cancel_submit_gems(); } catch (const cambc::error&) { }
+            return true;
+        }
+        return false;
+    }
+
     const bool low_health = me.health() <= me.max_health() * 0.35f;
-    const auto& enemies = visible_enemies_for_round(match);
+    const bool shop_recall_eligible = !force_recall && !low_health && !at_spawn && !final_tribute_active();
+    if (!force_recall && !low_health && !shop_recall_eligible) return false;
+
     bool active_fight = false;
-    for (const auto& enemy : enemies) {
-        try {
-            if (!enemy.is_alive()) continue;
-            if (enemy.position().chebyshev_distance(position) <= active_fight_distance ||
-                (memory.pursuit_target && static_cast<cambc::handle_champion_t>(enemy) == *memory.pursuit_target)) {
-                active_fight = true;
-                break;
-            }
-        } catch (const cambc::error&) { }
+    if (low_health || shop_recall_eligible) {
+        const auto& enemies = visible_enemies_for_round(match);
+        for (const auto& enemy : enemies) {
+            try {
+                if (!enemy.is_alive()) continue;
+                if (enemy.position().chebyshev_distance(position) <= active_fight_distance ||
+                    (memory.pursuit_target && static_cast<cambc::handle_champion_t>(enemy) == *memory.pursuit_target)) {
+                    active_fight = true;
+                    break;
+                }
+            } catch (const cambc::error&) { }
+        }
     }
 
-    const bool shop_recall = !final_tribute_active() && !active_fight && !at_spawn &&
-        me.gold_count() >= 300;
+    bool collecting_camp_reward = false;
+    const bool shop_recall = shop_recall_eligible && !active_fight &&
+        capture_allows_shop_recall(match, position, me.gold_count(), collecting_camp_reward);
 
-    if (force_recall && at_spawn && me.is_submitting_gems()) {
-        try { me.cancel_submit_gems(); } catch (const cambc::error&) { }
-        return true;
-    }
-    if (force_recall && at_spawn) return false;
     if (!force_recall && !low_health && !shop_recall) {
 
         return false;
@@ -498,7 +818,8 @@ bool recall_turn(MatchData& match, BotMemory& memory, bool force_recall, float a
         observe_respawns(match, round);
         refresh_respawn_beliefs(match, round);
     }
-    const bool result = retreat_to_spawn(memory, match, low_health && active_fight);
+    const bool result = retreat_to_spawn(memory, match, low_health && active_fight,
+                                         !shop_recall || !collecting_camp_reward);
 
     return result;
 }

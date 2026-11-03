@@ -71,6 +71,16 @@ bool prism_should_preserve_nearby_final_tribute(BotMemory& memory) {
 bool final_tribute_turn_flow(MatchData& match, BotMemory& memory, bool prism) {
     cambc::vec2 target{127, 127};
     const auto prism_engage_distance = prism && cambc::self().is_submitting_gems() ? 4.0f : 100.0f;
+
+    // A critical-health retreat must not be delayed by combat, including during final tribute.
+    if (recall_turn(match, memory, false, prism ? 100.0f : 5.0f)) {
+        if (memory.recall_channel_started) {
+            if (prism) publish_prism_recall();
+            pause_final_tribute_for_recall(memory);
+        }
+        return true;
+    }
+
     const bool preserve_tribute = prism && prism_should_preserve_nearby_final_tribute(memory);
     if (!preserve_tribute && combat_turn(match, memory,
             prism ? prism_engage_distance : 5.0f, prism ? &target : nullptr, prism)) {
