@@ -1,5 +1,6 @@
 #pragma once
 #include "../core/bot_memory.h"
+#include "../constants/tunable_constants.h"
 #include <optional>
 struct ChampionProfile;
 struct MatchData;
@@ -12,4 +13,4 @@ bool retreat_to_spawn(BotMemory& memory, MatchData& match, bool include_enemy_th
                       bool include_camp_threats = true, bool camp_reward_shop_recall = false,
                       bool visible_enemy_threat = false);
 bool recall_turn(MatchData& match, BotMemory& memory, bool force_recall = false,
-                 float active_fight_distance = 5.0f);
+                 float active_fight_distance = tunable_constants::kDefaultEngageDistance);

@@ -1,15 +1,15 @@
 #include "pathfinding.h"
 #include "../core/rng.h"
+#include "../constants/tunable_constants.h"
+#include "../constants/game_rules.h"
 #include <algorithm>
 #include <array>
 #include <cstdint>
 
 namespace nav {
 namespace {
-constexpr int kDashRange = 2;
-constexpr int kDashCooldown = 8;
-constexpr int kDashMinProgress = 3;
-constexpr int kHeartOfRuinMinCampDistance = 11;
+constexpr int kDashRange = game_rules::kDashRange;
+constexpr int kDashCooldown = game_rules::kAbilityCooldownRounds;
 
 struct DashOption {
     std::int8_t dx;
@@ -178,7 +178,7 @@ bool move_towards(MovementMemory& movement, cambc::vec2 target, bool allow_dash,
     if (additional_forbidden_tiles && additional_forbidden_tiles->is_set(target)) return false;
     const auto direct_distance = position.chebyshev_distance(target);
     if (movement.is_heart_of_ruin && target_is_camp &&
-        direct_distance < kHeartOfRuinMinCampDistance) {
+        direct_distance < tunable_constants::kHeartOfRuinMinCampDistance) {
         const bool moved = walk_towards(movement, target, additional_forbidden_tiles, failed_after_bush_reveal);
         return moved;
     }
@@ -217,7 +217,7 @@ bool move_towards(MovementMemory& movement, cambc::vec2 target, bool allow_dash,
     }
 
     const int minimum_distance = movement.is_heart_of_ruin && target_is_camp
-        ? kHeartOfRuinMinCampDistance : kDashMinProgress;
+        ? tunable_constants::kHeartOfRuinMinCampDistance : tunable_constants::kDashMinimumProgress;
     if (distance < minimum_distance) {
         const bool moved = walk_towards(movement, target, additional_forbidden_tiles, failed_after_bush_reveal);
         return moved;
@@ -236,7 +236,7 @@ bool move_towards(MovementMemory& movement, cambc::vec2 target, bool allow_dash,
         const auto landing_distance = goal_field.get(landing);
         if (landing_distance == cambc::distance_field::unreachable) continue;
         const int progress = distance - std::max(static_cast<int>(landing_distance) - 1, 0);
-        if (progress < kDashMinProgress || landing_blocked.is_set(landing)) continue;
+        if (progress < tunable_constants::kDashMinimumProgress || landing_blocked.is_set(landing)) continue;
 
         if (path_is_clear(position, option, walls)) candidates[candidate_count++] = {progress, landing};
     }

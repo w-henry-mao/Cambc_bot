@@ -1,29 +1,30 @@
 #pragma once
 #include <cambc.h>
 #include <cstdint>
+#include "game_rules.h"
+#include "tunable_constants.h"
 
 namespace farm_constants {
-    constexpr float kGoldWeight = 0.2f;
-    constexpr float kRoundDiscount = 0.95f;
-    constexpr float kRespawnWalkFactor = 0.8f;
-    constexpr int kCampSearchRange = 10000;  // Effectively infinite
-    constexpr int kCaptureTimeNormal = 5;
-    constexpr int kCaptureTimeWithEmblem = 3;
-    constexpr std::uint32_t kBlockedSkipRounds = 30;
+    constexpr float kGoldWeight = tunable_constants::kGoldWeight;
+    constexpr float kRoundDiscount = tunable_constants::kRoundDiscount;
+    constexpr float kRespawnWalkFactor = tunable_constants::kRespawnWalkFactor;
+    constexpr int kCampSearchRange = tunable_constants::kCampSearchRange;
+    constexpr int kCaptureTimeNormal = game_rules::kCaptureRounds;
+    constexpr int kCaptureTimeWithEmblem = game_rules::kCaptureRoundsWithEmblem;
+    constexpr std::uint32_t kBlockedSkipRounds = tunable_constants::kBlockedSkipRounds;
     
-    // Camp priority rank (lower is better). 
-    // This is strength ÷ max health and must be updated if the game is patched.
+    // Tunable target preference (lower is selected first).
     constexpr int get_camp_priority_rank(cambc::camp_type type) {
         switch (type) {
-            case cambc::camp_type::elk: return 1;      // 0.0250
-            case cambc::camp_type::golem: return 2;    // 0.0240
-            case cambc::camp_type::wolf: return 3;     // 0.0148
-            case cambc::camp_type::monolith: return 4; // 0.0100
+            case cambc::camp_type::elk: return tunable_constants::kElkCampPriority;
+            case cambc::camp_type::golem: return tunable_constants::kGolemCampPriority;
+            case cambc::camp_type::wolf: return tunable_constants::kWolfCampPriority;
+            case cambc::camp_type::monolith: return tunable_constants::kMonolithCampPriority;
             case cambc::camp_type::gold_cluster:
-            case cambc::camp_type::gem_cluster: return 5; // 0
-            default: return 5;
+            case cambc::camp_type::gem_cluster: return tunable_constants::kResourceClusterCampPriority;
+            default: return tunable_constants::kResourceClusterCampPriority;
         }
     }
     
-    constexpr bool kRangedWalkToPriority = false;
+    constexpr bool kRangedWalkToPriority = tunable_constants::kRangedWalkToPriority;
 }

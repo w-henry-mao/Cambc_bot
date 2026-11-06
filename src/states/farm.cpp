@@ -4,6 +4,8 @@
 #include "../nav/pathfinding.h"
 #include "../init/deferred_setup.h"
 #include "../constants/farm_constants.h"
+#include "../constants/tunable_constants.h"
+#include "../constants/game_rules.h"
 #include "tribute.h"
 #include <cambc.h>
 #include <algorithm>
@@ -17,11 +19,11 @@
 
 namespace {
 constexpr int kUnreached = 65535;
-constexpr int kDashCooldown = 8;
-constexpr std::uint32_t kRewardBeliefRounds = 20;
-constexpr std::uint32_t kYieldCaptureRounds = 5;
-constexpr int kHarvestNearRadius = 5;
-constexpr std::uint32_t kShopRecallGoldThreshold = 300;
+constexpr int kDashCooldown = game_rules::kAbilityCooldownRounds;
+constexpr std::uint32_t kRewardBeliefRounds = tunable_constants::kRewardBeliefRounds;
+constexpr std::uint32_t kYieldCaptureRounds = tunable_constants::kCaptureYieldRounds;
+constexpr int kHarvestNearRadius = tunable_constants::kHarvestNearRadius;
+constexpr std::uint32_t kShopRecallGoldThreshold = tunable_constants::kShopRecallGoldThreshold;
 
 int champion_rank(cambc::champion_type type) {
     switch (type) {
@@ -194,7 +196,9 @@ float discount(float rounds) {
 }
 
 float gold_weight(std::uint32_t round) {
-    if (round > 1600 || cambc::global_submitted_gems(cambc::team::enemy) > 800) return 0.0f;
+    if (round > tunable_constants::kGoldWeightStopRound ||
+        cambc::global_submitted_gems(cambc::team::enemy) >
+            tunable_constants::kGoldWeightStopEnemySubmittedGems) return 0.0f;
     return farm_constants::kGoldWeight;
 }
 
@@ -854,7 +858,7 @@ bool recall_turn(MatchData& match, BotMemory& memory, bool force_recall, float a
         return false;
     }
 
-    const bool low_health = me.health() <= me.max_health() * 0.35f;
+    const bool low_health = me.health() <= me.max_health() * tunable_constants::kLowHealthRecallFraction;
     const bool shop_recall_eligible = !force_recall && !low_health && !at_spawn && !final_tribute_active();
     if (!force_recall && !low_health && !shop_recall_eligible) return false;
 
@@ -918,7 +922,7 @@ void farm_turn(const ChampionProfile& profile, MatchData& match, BotMemory& memo
 
     observe_respawns(match, round);
     refresh_respawn_beliefs(match, round);
-    const bool low_health = me.health() <= me.max_health() * 0.35f;
+    const bool low_health = me.health() <= me.max_health() * tunable_constants::kLowHealthRecallFraction;
 
     // Move off only when a visible, timer-zero camp is blocked from spawning.
     if (!low_health) {
@@ -1351,7 +1355,7 @@ bool handle_cleared_coordinated_target(MatchData& match, BotMemory& memory,
         return true;
     }
 
-    constexpr int kPrismTetherRadius = 3;
+    constexpr int kPrismTetherRadius = tunable_constants::kPrismTetherRadius;
     if (position.chebyshev_distance(prism_position) > kPrismTetherRadius) {
         nav::move_into_radius(movement, prism_position, kPrismTetherRadius, true, &camp_tiles);
         return true;

@@ -1,8 +1,9 @@
 #include "stages.h"
+#include "../constants/tunable_constants.h"
 #include <cambc.h>
 
 void stage_map_snapshot(MatchData& match_data) {
-    constexpr std::int32_t enemy_spawn_avoidance_radius = 3;
+    constexpr std::int32_t enemy_spawn_avoidance_radius = tunable_constants::kEnemySpawnAvoidanceRadius;
     const auto enemy_spawn = cambc::map::spawn_region(cambc::team::enemy);
     for (const auto spawn : enemy_spawn.positions()) {
         for (std::int32_t dy = -enemy_spawn_avoidance_radius; dy <= enemy_spawn_avoidance_radius; ++dy) {

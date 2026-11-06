@@ -1,4 +1,5 @@
 #include "shop.h"
+#include "../constants/tunable_constants.h"
 #include <cambc.h>
 #include <algorithm>
 #include <array>
@@ -157,7 +158,8 @@ void shop_at_spawn_or_death() {
     if (gold < 30) return;
 
     if (champion == cambc::champion_type::prism) {
-        const bool tribute_due = me.gem_count() + cambc::global_submitted_gems(cambc::team::ally) > 600;
+        const bool tribute_due = me.gem_count() + cambc::global_submitted_gems(cambc::team::ally) >
+            tunable_constants::kPrismTributeShopGemThreshold;
         buy_plan(me, prism_plan, inventory, gold, true, tribute_due, cambc::item_stat::health);
     } else if (champion == cambc::champion_type::vendetta || champion == cambc::champion_type::vesper_vale) {
         buy_plan(me, vendetta_plan, inventory, gold, false, false, cambc::item_stat::strength);

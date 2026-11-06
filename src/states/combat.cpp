@@ -3,6 +3,8 @@
 #include "../core/match_data.h"
 #include "../nav/pathfinding.h"
 #include "../champions/registry.h"
+#include "../constants/tunable_constants.h"
+#include "../constants/game_rules.h"
 #include <cambc.h>
 #include <algorithm>
 #include <cstdint>
@@ -11,7 +13,6 @@
 #include <vector>
 
 namespace {
-constexpr std::uint32_t kPursuitLimit = 5;
 
 struct Enemy {
     cambc::champion view;
@@ -217,7 +218,7 @@ void fight_target(Enemy& target, BotMemory& memory, std::uint32_t round) {
                 ability_used = best_landing ? best_ability->use(*best_landing) : best_ability->use(target.view);
 
                 if (ability_used) {
-                    if (best_ability->is_dash()) memory.movement.cooldown = 8;
+                    if (best_ability->is_dash()) memory.movement.cooldown = game_rules::kAbilityCooldownRounds;
                     note_damage(memory, target, round);
                 }
             } catch (const cambc::error&) {
@@ -292,7 +293,7 @@ bool combat_turn(MatchData& match, BotMemory& memory, float engage_distance,
         if (found == enemies.end() || found->health <= 0.0f || found->in_spawn_zone) {
             clear_pursuit(memory);
         } else {
-            if (round - memory.pursuit_last_damage_round >= kPursuitLimit) {
+            if (round - memory.pursuit_last_damage_round >= tunable_constants::kPursuitLimit) {
                 memory.abandoned_pursuit_target = found->handle;
                 memory.abandoned_pursuit_last_health = found->health;
                 memory.abandoned_pursuit_last_seen_round = round;

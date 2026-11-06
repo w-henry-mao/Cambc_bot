@@ -4,6 +4,8 @@
 #include "tribute.h"
 #include "../core/match_data.h"
 #include "../core/team_strategy.h"
+#include "../constants/tunable_constants.h"
+#include "../constants/game_rules.h"
 #include "../nav/pathfinding.h"
 #include <cambc.h>
 
@@ -39,7 +41,7 @@ bool prism_is_alone(BotMemory& memory) {
         try {
             if (static_cast<cambc::handle_champion_t>(ally) == static_cast<cambc::handle_champion_t>(self) ||
                 !ally.is_alive()) continue;
-            if (ally.position().chebyshev_distance(position) <= 5) {
+            if (ally.position().chebyshev_distance(position) <= tunable_constants::kAllyNearbyRadius) {
                 ally_near = true;
                 break;
             }
@@ -54,7 +56,7 @@ bool prism_is_alone(BotMemory& memory) {
             ? memory.prism_alone_rounds + 1 : 1;
         memory.prism_alone_last_round = round;
     }
-    return memory.prism_alone_rounds > 10;
+    return memory.prism_alone_rounds > tunable_constants::kPrismAloneRecallRounds;
 }
 
 void publish_combat(cambc::vec2 target) {
@@ -63,18 +65,20 @@ void publish_combat(cambc::vec2 target) {
 
 bool prism_should_preserve_nearby_final_tribute(BotMemory& memory) {
     const auto me = cambc::self();
-    if (!final_tribute_active() || me.health() <= me.max_health() * 0.60f) return false;
+    if (!final_tribute_active() || me.health() <= me.max_health() * tunable_constants::kFinalTributePreserveHealthFraction) return false;
     const auto turns_remaining = prism_final_tribute_turns_to_completion(memory);
-    return turns_remaining && *turns_remaining <= 23;
+    return turns_remaining && *turns_remaining <= tunable_constants::kFinalTributePreserveTurns;
 }
 
 bool final_tribute_turn_flow(const ChampionProfile& profile, MatchData& match,
                              BotMemory& memory, bool prism) {
     cambc::vec2 target{127, 127};
-    const auto prism_engage_distance = prism && cambc::self().is_submitting_gems() ? 4.0f : 100.0f;
+    const auto prism_engage_distance = prism && cambc::self().is_submitting_gems()
+        ? tunable_constants::kPrismSubmitEngageDistance
+        : tunable_constants::kPrismFinalTributeCombatDistance;
 
     // A critical-health retreat must not be delayed by combat, including during final tribute.
-    if (recall_turn(match, memory, false, prism ? 100.0f : 5.0f)) {
+    if (recall_turn(match, memory, false, prism ? tunable_constants::kPrismFinalTributeRecallDistance : tunable_constants::kFinalTributeRecallDistance)) {
         if (memory.recall_channel_started) {
             if (prism) publish_prism_recall();
             pause_final_tribute_for_recall(memory);
@@ -84,7 +88,8 @@ bool final_tribute_turn_flow(const ChampionProfile& profile, MatchData& match,
 
     const bool preserve_tribute = prism && prism_should_preserve_nearby_final_tribute(memory);
     if (!preserve_tribute && combat_turn(match, memory,
-            prism ? prism_engage_distance : 5.0f, prism ? &target : nullptr, prism)) {
+            prism ? prism_engage_distance : tunable_constants::kFinalTributeCombatDistance,
+            prism ? &target : nullptr, prism)) {
         if (prism) publish_combat(target);
         return true;
     }
@@ -92,9 +97,9 @@ bool final_tribute_turn_flow(const ChampionProfile& profile, MatchData& match,
     const bool force_recall = final_tribute_recall_phase();
     bool recall_handled = false;
     if (prism) {
-        recall_handled = recall_turn(match, memory, force_recall, 100.0f);
+        recall_handled = recall_turn(match, memory, force_recall, tunable_constants::kPrismFinalTributeRecallDistance);
     } else {
-        recall_handled = recall_turn(match, memory, false, 5.0f);
+        recall_handled = recall_turn(match, memory, false, tunable_constants::kFinalTributeRecallDistance);
         if (!recall_handled && !force_recall) {
             const auto command = team_strategy::read();
             if (command.mode == team_strategy::Mode::combat &&
@@ -108,7 +113,7 @@ bool final_tribute_turn_flow(const ChampionProfile& profile, MatchData& match,
             }
         }
         if (!recall_handled && force_recall)
-            recall_handled = recall_turn(match, memory, true, 5.0f);
+            recall_handled = recall_turn(match, memory, true, tunable_constants::kFinalTributeRecallDistance);
     }
     if (memory.recall_channel_started) {
         if (prism) {
@@ -141,20 +146,19 @@ bool handle_prism(const ChampionProfile& profile, MatchData& match, BotMemory& m
         return true;
     }
 
-    constexpr float kPrismVisionDistance = 8.0f;
-    if (recall_turn(match, memory, false, kPrismVisionDistance)) {
+    if (recall_turn(match, memory, false, tunable_constants::kPrismVisionDistance)) {
         publish_prism_recall();
         return true;
     }
 
     cambc::vec2 enemy_position{127, 127};
-    if (combat_turn(match, memory, 100.0f, &enemy_position, true)) {
+    if (combat_turn(match, memory, tunable_constants::kPrismEngageDistance, &enemy_position, true)) {
         publish_combat(enemy_position);
         return true;
     }
 
     if (prism_is_alone(memory) &&
-        recall_turn(match, memory, true, kPrismVisionDistance)) {
+        recall_turn(match, memory, true, tunable_constants::kPrismVisionDistance)) {
         publish_prism_recall();
         return true;
     }

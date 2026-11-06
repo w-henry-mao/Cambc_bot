@@ -6,6 +6,8 @@
 #include "../core/match_data.h"
 #include "../champions/champion_profile.h"
 #include "../core/team_strategy.h"
+#include "../constants/tunable_constants.h"
+#include "../constants/game_rules.h"
 #include <cambc.h>
 #include <algorithm>
 #include <cstdint>
@@ -13,11 +15,6 @@
 #include <vector>
 
 namespace {
-constexpr std::uint32_t kTributeGemThreshold = 50;
-constexpr std::uint32_t kStaleGemRounds = 100;
-constexpr std::uint32_t kChampionRespawnRounds = 60;
-constexpr std::uint32_t kRespawnWaitWindow = 5;
-constexpr std::uint32_t kLateFinalTributeRound = 1800;
 constexpr std::size_t kMaxTeamSize = 5;
 
 enum class FinalTributeMode : std::uint8_t { inactive, recalling, escorting };
@@ -39,9 +36,12 @@ bool prism_has_tribute_emblem(BotMemory& memory) {
 }
 
 std::uint32_t prism_tribute_duration(BotMemory& memory, std::uint32_t gems) {
-    auto duration = std::max<std::uint32_t>(1, (gems + 9) / 10);
+    auto duration = std::max(game_rules::kMinimumTributeRounds,
+        (gems + game_rules::kGemsPerTributeTurn - 1) / game_rules::kGemsPerTributeTurn);
     if (duration > 3 && prism_has_tribute_emblem(memory))
-        duration = std::max<std::uint32_t>(1, (duration * 67 + 99) / 100);
+        duration = std::max(game_rules::kMinimumTributeRounds,
+            (duration * game_rules::kTributeEmblemDurationPercent + game_rules::kPercentScale - 1) /
+                game_rules::kPercentScale);
     return duration;
 }
 enum class FinalTributeReadiness : std::uint8_t {
@@ -243,7 +243,7 @@ void publish_final_tribute_status(BotMemory& memory) {
         memory.final_tribute_death_round_initialized = true;
     }
     const auto dead_rounds = round - memory.final_tribute_death_round;
-    const auto status = dead_rounds + kRespawnWaitWindow >= kChampionRespawnRounds
+    const auto status = dead_rounds + tunable_constants::kRespawnWaitWindow >= game_rules::kChampionRespawnRounds
         ? FinalTributeReadiness::not_ready
         : FinalTributeReadiness::dead_respawning_later;
     write_status(memory.final_tribute_slot, status);
@@ -420,8 +420,8 @@ void update_final_tribute(BotMemory& memory) {
 
         const auto combined_gems = me.gem_count() + cambc::global_submitted_gems(cambc::team::ally);
         const auto round = cambc::round_number();
-        const bool final_tribute_threshold_met = combined_gems >= 1000 ||
-            round >= kLateFinalTributeRound;
+        const bool final_tribute_threshold_met = combined_gems >= game_rules::kVictoryGemThreshold ||
+            round >= tunable_constants::kLateFinalTributeRound;
         if (memory.final_tribute_resume_round != 0) {
             if (round < memory.final_tribute_resume_round) return;
             memory.final_tribute_resume_round = 0;
@@ -544,9 +544,9 @@ bool tribute_turn(BotMemory& memory) {
     }
 
     const auto round = cambc::round_number();
-    const bool enough_gems = memory.carried_gems >= kTributeGemThreshold;
+    const bool enough_gems = memory.carried_gems >= tunable_constants::kTributeGemThreshold;
     const bool gems_stale = memory.gem_progress_initialized &&
-        round - memory.last_gem_increase_round >= kStaleGemRounds;
+        round - memory.last_gem_increase_round >= tunable_constants::kStaleGemRounds;
     if (!enough_gems && !gems_stale) {
 
         return false;

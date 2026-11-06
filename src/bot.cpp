@@ -5,12 +5,11 @@
 #include "states/tribute.h"
 #include "core/team_strategy.h"
 #include "champions/registry.h"
+#include "constants/game_rules.h"
+#include "constants/tunable_constants.h"
 #include <cambc.h>
 
 namespace {
-constexpr std::uint32_t kPrismRespawnRounds = 60;
-constexpr std::uint32_t kPrismRespawnRegroupLead = 5;
-
 bool prism_has_home_emblem() {
     try {
         const auto counts = cambc::self().item_count();
@@ -75,7 +74,7 @@ void Bot::play_turn() {
         if (memory_.prism_dead_since_round == std::numeric_limits<std::uint32_t>::max())
             memory_.prism_dead_since_round = round;
         if (round >= memory_.prism_dead_since_round &&
-            round - memory_.prism_dead_since_round >= kPrismRespawnRounds - kPrismRespawnRegroupLead)
+            round - memory_.prism_dead_since_round >= game_rules::kChampionRespawnRounds - tunable_constants::kPrismRespawnRegroupLead)
             memory_.prism_regroup_active = true;
     } else if (is_prism) {
         if (command.mode != team_strategy::Mode::arrived) {
